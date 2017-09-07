@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<!DOCTYPE html>
+<html lang="en" class="sticky-footer">
+  <head>
+    {% block head %}
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>UA HAS ARTSy</title>
+    <!-- Latest icon font stylesheet -->
+    <link rel="stylesheet" href="https://cdn.uadigital.arizona.edu/lib/ua-brand-icons/latest/ua-brand-icons.css">
+    <!-- Compiled and minified UA Bootstrap CSS, icon font not included -->
+    <link rel="stylesheet" href="https://cdn.uadigital.arizona.edu/lib/ua-bootstrap/v1.0.0-beta.4/ua-bootstrap.min.css">
+    {% endblock %}
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-2.2.4.min.js"></script>
+    {% block extra_head %}
+    {% endblock %}
+  </head>
+  <body>
+    {% include "header.html" %}
+    {% block content %}{% endblock %}
+    {% block footer %}
+    <!-- Latest compiled and minified JavaScript -->
+    <script src="https://cdn.uadigital.arizona.edu/lib/ua-bootstrap/v1.0.0-beta.4/ua-bootstrap.min.js"></script>
+    <footer role="contentinfo" class="bs-footer page-row">
+      <div class="container text-center">
+        <hr>
+        <ul class="footer-links muted list-inline list-unstyled">
+          <li>Built with <li><a href="http://bokeh.pydata.org">Bokeh</a></li>
+          <li>.</li>
+          <li><a href="https://github.com/uarenforecasting/artsy">GitHub</a></li>
+        </ul>
+      </div>
+    </footer>
+    {% endblock %}
+  </body>
+</html>

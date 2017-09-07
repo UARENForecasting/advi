@@ -1,0 +1,123 @@
+#! /usr/bin/env python
+"""
+Download the MRMS data, get only the given area, project to web mercator,
+and regrid onto a regular grid for later plotting.
+"""
+import argparse
+from functools import partial
+import logging
+import os
+import sys
+
+
+import pandas as pd
+import numpy as np
+import netCDF4 as nc4
+import scipy.interpolate
+
+
+def webmerc_proj(lat, lon):
+    """Convert latititude and longitude to web mercator"""
+    R = 6378137
+    x = np.radians(lon) * R
+    y = np.log(np.tan(np.pi / 4 + np.radians(lat) / 2)) * R
+    return x, y
+
+
+def convert_time_str(time_bytes):
+    time_str = time_bytes.astype(str)
+    times = [''.join(ts).replace('_', ' ') for ts in time_str]
+    indx = pd.DatetimeIndex(times).tz_localize('UTC')
+    return indx
+
+
+def read_subset(filename, variable):
+    """Read a subset of the data from the grib file"""
+    logging.info('Reading subset of data from grib file')
+    ds = nc4.Dataset(filename)
+    lats = ds.variables['XLAT'][:]
+    lons = ds.variables['XLONG'][:]
+    try:
+        data = ds.variables[variable][:]
+    except KeyError:
+        raise
+    times = convert_time_str(ds.variables['Times'][:])
+    valid_date = pd.Timestamp(ds.SIMULATION_START_DATE.replace('_', ' '))
+    return data, lats, lons, times, valid_date
+
+
+def regrid_and_save(data, lats, lons, times, valid_date, overwrite, base_dir):
+    """Regrid the data onto an even web mercator grid"""
+    logging.info('Regridding data...')
+    x, y = webmerc_proj(lats, lons)
+
+    save = partial(save_data, base_dir, valid_date, overwrite=overwrite)
+
+    shape = data.shape
+    # make new grid
+    xn = np.linspace(x.min(), x.max(), shape[2])
+    yn = np.linspace(y.min(), y.max(), shape[1])
+    X, Y = np.meshgrid(xn, yn)
+    save('XY.npz', {'X': X, 'Y': Y})
+
+    lni = scipy.interpolate.LinearNDInterpolator(
+        (x.ravel(), y.ravel()),
+        data[0].ravel())
+    dtri = lni.tri
+    regridded = lni((X, Y))
+    tformat = '%Y-%m-%dT%H:%MZ.npz'
+    save(times[0].strftime(tformat), {'data': regridded})
+    for i in range(1, data.shape[0]):
+        lni = scipy.interpolate.LinearNDInterpolator(
+            dtri, data[i].ravel())
+        regridded = lni((X, Y))
+        save(times[i].strftime(tformat), {'data': regridded})
+
+
+def save_data(base_dir, valid_date, filename, ddict, overwrite):
+    """Save the data and grid to a numpy file"""
+    logging.info('Saving numpy data to a file at %s...',
+                 filename)
+    thedir = os.path.join(os.path.expanduser(base_dir),
+                          valid_date.strftime('%Y/%m/%d'))
+    if not os.path.isdir(thedir):
+        os.makedirs(thedir)
+
+    path = os.path.join(thedir, filename)
+    if os.path.isfile(path) and not overwrite:
+        logging.error('%s already exists', path)
+        sys.exit(1)
+    np.savez_compressed(path, **ddict)
+
+
+def main():
+    logging.basicConfig(
+        level='WARNING',
+        format='%(asctime)s %(levelname)s %(name)s %(message)s')
+    argparser = argparse.ArgumentParser(
+        description='Regrid and save WRF data',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    argparser.add_argument('-v', '--verbose', action='count',
+                           help='Increase logging verbosity')
+    argparser.add_argument('--save-dir', help='Directory to save data to',
+                           default='~/.wrf')
+    argparser.add_argument('-o', '--overwrite', action='store_true',
+                           help='Overwrite file if already exists')
+    argparser.add_argument('--var', help='Variable to get from WRF file',
+                           default='T2')
+    argparser.add_argument('file')
+
+    args = argparser.parse_args()
+
+    if args.verbose == 1:
+        logging.getLogger().setLevel(logging.INFO)
+    elif args.verbose and args.verbose > 1:
+        logging.getLogger().setLevel(logging.DEBUG)
+
+    data, lats, lons, times, valid_date = read_subset(args.file, args.var)
+    regrid_and_save(data, lats, lons, times, valid_date, args.overwrite,
+                    args.save_dir)
+
+
+if __name__ == '__main__':
+    main()
