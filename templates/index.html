@@ -7,6 +7,28 @@
      margin-top: 32px;
   }
 </style>
+<script type=text/javascript>
+    $(document).keydown(function(event){
+        switch(event.key) {
+        case "ArrowLeft":
+            console.log('left');
+            var ds = Bokeh.documents[0].get_model_by_name('timeslider');
+            if (ds.value > ds.start){
+                ds.value -= ds.step;
+            };
+            break;
+        case "ArrowRight":
+            console.log('right');
+            var ds = Bokeh.documents[0].get_model_by_name('timeslider');
+            if (ds.value < ds.end){
+                ds.value += ds.step;
+            };
+            break;
+        default:
+            return;
+        }
+    });
+</script>
 {% endblock %}
 {% block content %}
 <div id="header_site">

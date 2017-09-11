@@ -11,7 +11,8 @@ from bokeh.colors import RGB
 from bokeh.layouts import gridplot, column, row
 from bokeh.models import (
     Range1d, LinearColorMapper, ColorBar, FixedTicker,
-    ColumnDataSource, CustomJS, WMTSTileSource, Spacer)
+    ColumnDataSource, CustomJS, WMTSTileSource, Spacer,
+    Slider)
 from bokeh.models.widgets import Select, Div
 from bokeh.plotting import figure, curdoc
 from matplotlib.colors import BoundaryNorm
@@ -189,7 +190,9 @@ dates = list(file_dict.keys())[::-1]
 select_day = Select(title='Initialization Day', value=dates[0], options=dates)
 select_model = DisabledSelect(title='Initialization', value='',
                               options=[])
-# select_fxtime = Select(title='Valid Time', value=dates[0], options=dates)
+times = []
+select_fxtime = Slider(title='Valid Time', start=0, end=1, value=0,
+                       name='timeslider')
 info_data = ColumnDataSource(data={'current_val': [0], 'mean': [0]})
 info_text = """
 <div class="well">
@@ -228,7 +231,10 @@ def _update_histogram():
     bottom_idx = np.abs(yn - bottom).argmin()
     top_idx = np.abs(yn - top).argmin() + 1
     logging.debug('Updating histogram...')
-    new_subset = masked_regrid[bottom_idx:top_idx, left_idx:right_idx]
+    try:
+        new_subset = masked_regrid[bottom_idx:top_idx, left_idx:right_idx]
+    except TypeError:
+        return
     counts, _ = np.histogram(
         new_subset.clip(max=MAX_VAL), bins=levels,
         range=(levels.min(), levels.max()))
@@ -253,8 +259,8 @@ def _update_map(update_range=False):
     logging.debug('Updating map...')
     valid_date = local_data_source.data['valid_date'][0]
     model = select_model.value
-    title = 'WRF Temperature (°F) Init. {} on {}'.format(
-        f'{model}', valid_date.strftime(sfmt))
+    title = 'WRF Temperature (°F) valid at {}'.format(
+        valid_date.strftime(sfmt))
     map_fig.title.text = title
     masked_regrid = local_data_source.data['masked_regrid'][0]
     xn = local_data_source.data['xn'][0]
@@ -285,7 +291,7 @@ def update_data(attr, old, new):
 @gen.coroutine
 def _update_data(update_range=False):
     logging.debug('Updating data...')
-    valid_date = times[0]
+    valid_date = times[int(select_fxtime.value)]
     masked_regrid, X, Y = load_data(valid_date)
     xn = X[0]
     yn = Y[:, 0]
@@ -319,8 +325,7 @@ def _update_models(update_range=False):
         if not disabled and not thelabel:
             thelabel = m
     select_model.value = thelabel
-    curdoc().add_next_tick_callback(_update_file)
-    curdoc().add_next_tick_callback(partial(_update_data, update_range))
+    curdoc().add_next_tick_callback(partial(_update_file, update_range))
 
 
 def update_file(attr, old, new):
@@ -331,9 +336,17 @@ def update_file(attr, old, new):
 
 
 @gen.coroutine
-def _update_file():
+def _update_file(update_range=False):
     date = file_dict[select_day.value]
     load_file(select_model.value, date)
+    options = [t.strftime('%Y-%m-%d %H:%MZ') for t in times]
+    select_fxtime.end = len(options) - 1
+    if select_fxtime.value > select_fxtime.end:
+        select_fxtime.value = select_fxtime.end
+    try:
+        doc.add_next_tick_callback(partial(_update_data, update_range))
+    except ValueError:
+        pass
 
 
 def move_click_marker(event):
@@ -390,11 +403,11 @@ map_fig.y_range.on_change('end', update_histogram)
 map_fig.on_event(events.Tap, move_click_marker)
 
 select_day.on_change('value', update_models)
-select_model.on_change('value', update_data)
-#select_fxtime.on_change('value', update_data)
+select_model.on_change('value', update_file)
+select_fxtime.on_change('value', update_data)
 
 # layout the document
-lay = column(row([select_day, select_model, info_div]),
+lay = column(row([select_day, select_model, select_fxtime, info_div]),
              row([map_fig, hist_fig]))
 doc = curdoc()
 doc.add_root(lay)
