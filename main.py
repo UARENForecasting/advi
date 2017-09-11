@@ -18,6 +18,8 @@ from matplotlib.colors import BoundaryNorm
 from matplotlib.ticker import MaxNLocator
 from matplotlib.cm import ScalarMappable, get_cmap
 import numpy as np
+import pandas as pd
+import tables
 from tornado import gen
 
 
@@ -47,26 +49,21 @@ def load_data(model, fx_date='latest', valid_date='latest'):
     else:
         model_dir = os.path.join(dir, fx_date.strftime('%Y/%m/%d'), model)
 
-    strformat = '%Y-%m-%dT%H:%MZ.npz'
-    if valid_date == 'latest':
-        p = Path(model_dir)
-        plist = sorted([pp for pp in p.rglob('*.npz')], reverse=True)
-        path = plist[0]
-        if path.parts[-1] == 'XY.npz':
-            path = plist[1]
-    else:
-        path = os.path.join(model_dir,
-                            valid_date.strftime(strformat))
+    strformat = '%Y%m%dT%H%MZ'
+    path = os.path.join(model_dir,
+                        'data.h5')
 
-    valid_date = dt.datetime.strptime(os.path.basename(str(path)),
-                                      strformat)
-    data_load = np.load(path)
-    regridded_data = k_to_f(data_load['data'])
+    h5file = tables.open_file(path, mode='r')
+    valid_date = h5file.root._v_attrs.valid_date
+    times = pd.DatetimeIndex(
+        h5file.get_node('/times')[:]).tz_localize('UTC')
+
+    data = h5file.get_node(f'/{times[-1].strftime(strformat)}')[:]
+    regridded_data = k_to_f(data)
     regridded_data[np.isnan(regridded_data)] = -999
 
-    grid = np.load(os.path.join(model_dir, 'XY.npz'))
-    X = grid['X']
-    Y = grid['Y']
+    X = h5file.get_node('/X')[:]
+    Y = h5file.get_node('/Y')[:]
     masked_regrid = np.ma.masked_less(regridded_data, MIN_VAL)
     return masked_regrid, X, Y, valid_date
 

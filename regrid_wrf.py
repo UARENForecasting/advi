@@ -14,6 +14,7 @@ import pandas as pd
 import numpy as np
 import netCDF4 as nc4
 import scipy.interpolate
+import tables
 
 
 def webmerc_proj(lat, lon):
@@ -51,43 +52,56 @@ def regrid_and_save(data, lats, lons, times, valid_date, overwrite, base_dir):
     logging.info('Regridding data...')
     x, y = webmerc_proj(lats, lons)
 
-    save = partial(save_data, base_dir, valid_date, overwrite=overwrite)
+    h5file = create_file(base_dir, valid_date, 'data.h5', overwrite)
+    save = partial(save_data, h5file)
 
     shape = data.shape
     # make new grid
     xn = np.linspace(x.min(), x.max(), shape[2])
     yn = np.linspace(y.min(), y.max(), shape[1])
     X, Y = np.meshgrid(xn, yn)
-    save('XY.npz', {'X': X, 'Y': Y})
+    save({'X': X, 'Y': Y})
 
     lni = scipy.interpolate.LinearNDInterpolator(
         (x.ravel(), y.ravel()),
         data[0].ravel())
     dtri = lni.tri
     regridded = lni((X, Y))
-    tformat = '%Y-%m-%dT%H:%MZ.npz'
-    save(times[0].strftime(tformat), {'data': regridded})
+    tformat = '%Y%m%dT%H%MZ'
+    save({times[0].strftime(tformat): regridded})
     for i in range(1, data.shape[0]):
         lni = scipy.interpolate.LinearNDInterpolator(
             dtri, data[i].ravel())
         regridded = lni((X, Y))
-        save(times[i].strftime(tformat), {'data': regridded})
+        save({times[i].strftime(tformat): regridded})
+    h5file.create_array('/', 'times', times.values.astype(int))
+    h5file.root._v_attrs.valid_date = valid_date
+    h5file.close()
 
 
-def save_data(base_dir, valid_date, filename, ddict, overwrite):
-    """Save the data and grid to a numpy file"""
-    logging.info('Saving numpy data to a file at %s...',
-                 filename)
+def create_file(base_dir, valid_date, filename, overwrite):
     thedir = os.path.join(os.path.expanduser(base_dir),
                           valid_date.strftime('%Y/%m/%d'))
     if not os.path.isdir(thedir):
         os.makedirs(thedir)
 
     path = os.path.join(thedir, filename)
+    logging.info('Creating h5 file at %s', path)
     if os.path.isfile(path) and not overwrite:
         logging.error('%s already exists', path)
         sys.exit(1)
-    np.savez_compressed(path, **ddict)
+    f = tables.Filters(fletcher32=True, shuffle=True, complib='blosc:zlib',
+                       complevel=5)
+    h5file = tables.open_file(path, mode='w', filters=f)
+    return h5file
+
+
+def save_data(h5file, ddict):
+    """Save the data and grid to a numpy file"""
+    logging.info('Saving numpy data to a file...')
+    for k, v in ddict.items():
+        h5file.create_array('/', k, v)
+    h5file.flush()
 
 
 def main():
