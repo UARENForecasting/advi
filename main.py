@@ -21,6 +21,9 @@ import numpy as np
 from tornado import gen
 
 
+from models.disabled_select import DisabledSelect
+
+
 MIN_VAL = 0
 MAX_VAL = 120
 ALPHA = 0.7
@@ -83,6 +86,15 @@ def find_fx_times():
     return out
 
 
+def strfmodel(modelstr):
+    return f'{modelstr[3:6]} {modelstr[7:]}'
+
+
+def strpmodel(model):
+    m = model.split(' ')
+    return f'WRF{m[0]}_{m[1]}'
+
+
 def get_models(date):
     dir = os.path.join(DATA_DIRECTORY, date.strftime('%Y/%m/%d'))
     p = Path(dir).expanduser()
@@ -90,7 +102,7 @@ def get_models(date):
     for pp in p.iterdir():
         m = pp.parts[-1]
         disabled[m] = False
-    mld = [(k, f'{k[3:6]} {k[-3:]}', v) for k, v in disabled.items()]
+    mld = [(strfmodel(k), v) for k, v in disabled.items()]
     return mld
 
 
@@ -170,7 +182,8 @@ map_fig.x(x='x', y='y', size=10, color='red', alpha=ALPHA,
 file_dict = find_fx_times()
 dates = list(file_dict.keys())[::-1]
 select_day = Select(title='Initialization Day', value=dates[0], options=dates)
-select_model = Select(title='Initialization', value='WRFGFS_12Z', options=[])
+select_model = DisabledSelect(title='Initialization', value='',
+                              options=[])
 # select_fxtime = Select(title='Valid Time', value=dates[0], options=dates)
 info_data = ColumnDataSource(data={'current_val': [0], 'mean': [0]})
 info_text = """
@@ -235,7 +248,7 @@ def _update_map(update_range=False):
     logging.debug('Updating map...')
     valid_date = local_data_source.data['valid_date'][0]
     model = select_model.value
-    title = 'WRF Temperature Init. {} on {}'.format(
+    title = 'WRF Temperature (°F) Init. {} on {}'.format(
         f'{model}', valid_date.strftime(sfmt))
     map_fig.title.text = title
     masked_regrid = local_data_source.data['masked_regrid'][0]
@@ -268,7 +281,7 @@ def update_data(attr, old, new):
 def _update_data(update_range=False):
     logging.debug('Updating data...')
     date = file_dict[select_day.value]
-    model = select_model.value
+    model = strpmodel(select_model.value)
     masked_regrid, X, Y, valid_date = load_data(model, date)
     xn = X[0]
     yn = Y[:, 0]
@@ -296,7 +309,7 @@ def _update_models(update_range=False):
     select_model.options = models
 
     thelabel = ''
-    for m, label, disabled in models:
+    for m, disabled in models:
         if m == select_model.value and not disabled:
             thelabel = m
         if not disabled and not thelabel:
