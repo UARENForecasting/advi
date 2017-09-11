@@ -40,32 +40,40 @@ def k_to_f(temp):
     return f
 
 
-def load_data(model, fx_date='latest', valid_date='latest'):
+def load_file(model, fx_date='latest'):
     dir = os.path.expanduser(DATA_DIRECTORY)
     if fx_date == 'latest':
         p = Path(dir)
         model_dir = sorted([pp for pp in p.rglob(f'*{model}')],
                            reverse=True)[0]
     else:
-        model_dir = os.path.join(dir, fx_date.strftime('%Y/%m/%d'), model)
+        model_dir = os.path.join(dir, fx_date.strftime('%Y/%m/%d'),
+                                 strpmodel(model))
 
-    strformat = '%Y%m%dT%H%MZ'
     path = os.path.join(model_dir,
                         'data.h5')
 
+    global h5file
+    try:
+        h5file.close()
+    except:
+        pass
     h5file = tables.open_file(path, mode='r')
-    valid_date = h5file.root._v_attrs.valid_date
+    global times
     times = pd.DatetimeIndex(
         h5file.get_node('/times')[:]).tz_localize('UTC')
 
-    data = h5file.get_node(f'/{times[-1].strftime(strformat)}')[:]
+
+def load_data(valid_date):
+    strformat = '%Y%m%dT%H%MZ'
+    data = h5file.get_node(f'/{valid_date.strftime(strformat)}')[:]
     regridded_data = k_to_f(data)
     regridded_data[np.isnan(regridded_data)] = -999
 
     X = h5file.get_node('/X')[:]
     Y = h5file.get_node('/Y')[:]
     masked_regrid = np.ma.masked_less(regridded_data, MIN_VAL)
-    return masked_regrid, X, Y, valid_date
+    return masked_regrid, X, Y
 
 
 def find_fx_times():
@@ -277,9 +285,8 @@ def update_data(attr, old, new):
 @gen.coroutine
 def _update_data(update_range=False):
     logging.debug('Updating data...')
-    date = file_dict[select_day.value]
-    model = strpmodel(select_model.value)
-    masked_regrid, X, Y, valid_date = load_data(model, date)
+    valid_date = times[0]
+    masked_regrid, X, Y = load_data(valid_date)
     xn = X[0]
     yn = Y[:, 0]
     local_data_source.data.update({'masked_regrid': [masked_regrid],
@@ -311,9 +318,22 @@ def _update_models(update_range=False):
             thelabel = m
         if not disabled and not thelabel:
             thelabel = m
-
     select_model.value = thelabel
+    curdoc().add_next_tick_callback(_update_file)
     curdoc().add_next_tick_callback(partial(_update_data, update_range))
+
+
+def update_file(attr, old, new):
+    try:
+        doc.add_timeout_callback(_update_file, 100)
+    except ValueError:
+        pass
+
+
+@gen.coroutine
+def _update_file():
+    date = file_dict[select_day.value]
+    load_file(select_model.value, date)
 
 
 def move_click_marker(event):
