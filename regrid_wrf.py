@@ -47,12 +47,13 @@ def read_subset(filename, variable):
     return data, lats, lons, times, valid_date
 
 
-def regrid_and_save(data, lats, lons, times, valid_date, overwrite, base_dir):
+def regrid_and_save(data, lats, lons, times, valid_date, overwrite, base_dir,
+                    var):
     """Regrid the data onto an even web mercator grid"""
     logging.info('Regridding data...')
     x, y = webmerc_proj(lats, lons)
 
-    h5file = create_file(base_dir, valid_date, 'data.h5', overwrite)
+    h5file = create_file(base_dir, valid_date, f'{var}.h5', overwrite)
     save = partial(save_data, h5file)
 
     shape = data.shape
@@ -130,7 +131,7 @@ def main():
 
     data, lats, lons, times, valid_date = read_subset(args.file, args.var)
     regrid_and_save(data, lats, lons, times, valid_date, args.overwrite,
-                    args.save_dir)
+                    args.save_dir, args.var)
 
 
 if __name__ == '__main__':

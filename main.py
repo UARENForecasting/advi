@@ -27,8 +27,6 @@ from tornado import gen
 from models.disabled_select import DisabledSelect
 
 
-MIN_VAL = 0
-MAX_VAL = 120
 ALPHA = 0.7
 DATA_DIRECTORY = os.getenv('ARTSY_WRF_DATADIR', '~/.wrf')
 POSSIBLE_MODELS = ('WRFGFS_00Z', 'WRFGFS_06Z', 'WRFGFS_12Z',
@@ -41,6 +39,22 @@ def k_to_f(temp):
     return f
 
 
+curdir = os.path.basename(os.path.dirname(__file__))
+if curdir == 'ghi':
+    MIN_VAL = 0
+    MAX_VAL = 1200
+    VAR = 'SWDNB'
+    CMAP = 'viridis'
+    CONVFUNC = lambda x: x
+    XLABEL = 'GHI (W/m^2)'
+else:
+    MIN_VAL = 0
+    MAX_VAL = 120
+    VAR = 'T2'
+    CMAP = 'plasma'
+    CONVFUNC = k_to_f
+    XLABEL = 'Temperature (°F)'
+
 def load_file(model, fx_date='latest'):
     dir = os.path.expanduser(DATA_DIRECTORY)
     if fx_date == 'latest':
@@ -52,7 +66,7 @@ def load_file(model, fx_date='latest'):
                                  strpmodel(model))
 
     path = os.path.join(model_dir,
-                        'data.h5')
+                        f'{VAR}.h5')
 
     global h5file
     try:
@@ -68,7 +82,7 @@ def load_file(model, fx_date='latest'):
 def load_data(valid_date):
     strformat = '%Y%m%dT%H%MZ'
     data = h5file.get_node(f'/{valid_date.strftime(strformat)}')[:]
-    regridded_data = k_to_f(data)
+    regridded_data = CONVFUNC(data)
     regridded_data[np.isnan(regridded_data)] = -999
 
     X = h5file.get_node('/X')[:]
@@ -114,7 +128,7 @@ def get_models(date):
 
 # setup the coloring
 levels = MaxNLocator(nbins=25).tick_values(MIN_VAL, MAX_VAL)
-cmap = get_cmap('plasma')
+cmap = get_cmap(CMAP)
 norm = BoundaryNorm(levels, ncolors=cmap.N, clip=True)
 sm = ScalarMappable(norm=norm, cmap=cmap)
 color_pal = [RGB(*val).to_hex() for val in
@@ -127,14 +141,14 @@ cb = ColorBar(color_mapper=color_mapper, location=(0, 0),
 
 # make the bokeh figures without the data yet
 width = 600
-height = 410
+height = 400
 sfmt = '%Y-%m-%d %HZ'
 tools = 'pan, box_zoom, reset, save'
 map_fig = figure(plot_width=width, plot_height=height,
                  y_axis_type=None, x_axis_type=None,
                  toolbar_location='left', tools=tools + ', wheel_zoom',
                  active_scroll='wheel_zoom',
-                 title='MRMS Precipitation')
+                 title='')
 
 rgba_img_source = ColumnDataSource(data={'image': [], 'x': [], 'y': [],
                                          'dw': [], 'dh': []})
@@ -159,7 +173,7 @@ map_fig.add_layout(cb, 'right')
 # Make the histogram figure
 hist_fig = figure(plot_width=height, plot_height=height,
                   toolbar_location='right',
-                  x_axis_label='Temperature (deg F)',
+                  x_axis_label=XLABEL,
                   y_axis_label='Counts', tools=tools + ', ywheel_zoom',
                   active_scroll='ywheel_zoom',
                   x_range=Range1d(start=MIN_VAL, end=MAX_VAL))
@@ -191,12 +205,12 @@ select_day = Select(title='Initialization Day', value=dates[0], options=dates)
 select_model = DisabledSelect(title='Initialization', value='',
                               options=[])
 times = []
-select_fxtime = Slider(title='Valid Time', start=0, end=1, value=0,
+select_fxtime = Slider(title='Forecast Hour', start=0, end=1, value=0,
                        name='timeslider')
 info_data = ColumnDataSource(data={'current_val': [0], 'mean': [0]})
 info_text = """
 <div class="well">
-<b>Selected Value:</b> {current_val:0.3f} <b>Mean:</b> {mean:0.3f}
+<b>Selected Value:</b> {current_val:0.1f} <b>Mean:</b> {mean:0.1f}
 </div>
 """
 info_div = Div(sizing_mode='scale_width')
@@ -259,8 +273,7 @@ def _update_map(update_range=False):
     logging.debug('Updating map...')
     valid_date = local_data_source.data['valid_date'][0]
     model = select_model.value
-    title = 'WRF Temperature (°F) valid at {}'.format(
-        valid_date.strftime(sfmt))
+    title = f'WRF {XLABEL} valid at {valid_date.strftime(sfmt)}'
     map_fig.title.text = title
     masked_regrid = local_data_source.data['masked_regrid'][0]
     xn = local_data_source.data['xn'][0]
@@ -394,6 +407,7 @@ def _update_div_text():
     mean = info_data.data['mean'][0]
     info_div.text = info_text.format(current_val=current_val,
                                      mean=mean)
+
 
 # python callbacks
 map_fig.x_range.on_change('start', update_histogram)
