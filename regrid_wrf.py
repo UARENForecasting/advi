@@ -4,10 +4,12 @@ Download the MRMS data, get only the given area, project to web mercator,
 and regrid onto a regular grid for later plotting.
 """
 import argparse
+import datetime as dt
 from functools import partial
 import logging
 import os
 import sys
+import warnings
 
 
 import pandas as pd
@@ -15,6 +17,9 @@ import numpy as np
 import netCDF4 as nc4
 import scipy.interpolate
 import tables
+
+
+FILENAME = 'wrfsolar_d02_hourly.nc'
 
 
 def webmerc_proj(lat, lon):
@@ -32,9 +37,16 @@ def convert_time_str(time_bytes):
     return indx
 
 
-def read_subset(filename, variable):
+def read_subset(model, base_dir, day, variable):
     """Read a subset of the data from the grib file"""
     logging.info('Reading subset of data from grib file')
+    filename = os.path.join(os.path.expanduser(base_dir),
+                            day.strftime('%Y/%m/%d'),
+                            model,
+                            FILENAME)
+    if not os.path.isfile(filename):
+        logging.error('File %s does not exist', filename)
+        sys.exit(1)
     ds = nc4.Dataset(filename)
     lats = ds.variables['XLAT'][:]
     lons = ds.variables['XLONG'][:]
@@ -47,13 +59,13 @@ def read_subset(filename, variable):
     return data, lats, lons, times, valid_date
 
 
-def regrid_and_save(data, lats, lons, times, valid_date, overwrite, base_dir,
-                    var):
+def regrid_and_save(data, lats, lons, times, valid_date, overwrite, save_dir,
+                    var, model):
     """Regrid the data onto an even web mercator grid"""
     logging.info('Regridding data...')
     x, y = webmerc_proj(lats, lons)
 
-    h5file = create_file(base_dir, valid_date, f'{var}.h5', overwrite)
+    h5file = create_file(save_dir, valid_date, model, f'{var}.h5', overwrite)
     save = partial(save_data, h5file)
 
     shape = data.shape
@@ -80,9 +92,10 @@ def regrid_and_save(data, lats, lons, times, valid_date, overwrite, base_dir,
     h5file.close()
 
 
-def create_file(base_dir, valid_date, filename, overwrite):
+def create_file(base_dir, valid_date, model, filename, overwrite):
     thedir = os.path.join(os.path.expanduser(base_dir),
-                          valid_date.strftime('%Y/%m/%d'))
+                          valid_date.strftime('%Y/%m/%d'),
+                          model)
     if not os.path.isdir(thedir):
         os.makedirs(thedir)
 
@@ -100,8 +113,10 @@ def create_file(base_dir, valid_date, filename, overwrite):
 def save_data(h5file, ddict):
     """Save the data and grid to a numpy file"""
     logging.info('Saving numpy data to a file...')
-    for k, v in ddict.items():
-        h5file.create_array('/', k, v)
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore')
+        for k, v in ddict.items():
+            h5file.create_array('/', k, v)
     h5file.flush()
 
 
@@ -120,7 +135,11 @@ def main():
                            help='Overwrite file if already exists')
     argparser.add_argument('--var', help='Variable to get from WRF file',
                            default='T2')
-    argparser.add_argument('file')
+    argparser.add_argument('--base-dir', help='Base directory with WRF files',
+                           default='/a4/uaren/')
+    argparser.add_argument('-d', '--day', help='Day to get data from')
+    argparser.add_argument(
+        'model', help='Model to get data from i.e. WRFGFS_12Z')
 
     args = argparser.parse_args()
 
@@ -129,9 +148,16 @@ def main():
     elif args.verbose and args.verbose > 1:
         logging.getLogger().setLevel(logging.DEBUG)
 
-    data, lats, lons, times, valid_date = read_subset(args.file, args.var)
+    if args.day is None:
+        day = dt.date.today()
+    else:
+        day = pd.Timestamp(args.day).date()
+
+    data, lats, lons, times, valid_date = read_subset(args.model,
+                                                      args.base_dir,
+                                                      day, args.var)
     regrid_and_save(data, lats, lons, times, valid_date, args.overwrite,
-                    args.save_dir, args.var)
+                    args.save_dir, args.var, args.model)
 
 
 if __name__ == '__main__':
