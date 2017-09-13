@@ -148,7 +148,7 @@ map_fig = figure(plot_width=width, plot_height=height,
                  y_axis_type=None, x_axis_type=None,
                  toolbar_location='left', tools=tools + ', wheel_zoom',
                  active_scroll='wheel_zoom',
-                 title='')
+                 title='', name='bkfig')
 
 rgba_img_source = ColumnDataSource(data={'image': [], 'x': [], 'y': [],
                                          'dw': [], 'dh': []})
@@ -426,4 +426,5 @@ lay = column(row([select_day, select_model, select_fxtime, info_div]),
 doc = curdoc()
 doc.add_root(lay)
 doc.add_next_tick_callback(partial(_update_models, True))
+doc.add_timeout_callback(_update_data, 3000)
 #doc.add_next_tick_callback(partial(_update_data, True))
