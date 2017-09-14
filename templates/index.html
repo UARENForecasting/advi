@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block extra_head %}
+{{ bokeh_css }}
+{{ bokeh_js }}
+<style>
+  .top-marg {
+     margin-top: 32px;
+  }
+</style>
+<script type=text/javascript>
+    $(document).keydown(function(event){
+        switch(event.key) {
+        case "ArrowLeft":
+            console.log('left');
+            var ds = Bokeh.documents[0].get_model_by_name('timeslider');
+            if (ds.value > ds.start){
+                ds.value -= ds.step;
+            };
+            break;
+        case "ArrowRight":
+            console.log('right');
+            var ds = Bokeh.documents[0].get_model_by_name('timeslider');
+            if (ds.value < ds.end){
+                ds.value += ds.step;
+            };
+            break;
+        default:
+            return;
+        }
+    });
+</script>
+{% endblock %}
+{% block content %}
+<div id="header_site">
+  <div class="container">
+    <div class="row">
+      <div class="page-header">
+        <h1>ADVI <small>Arizona gridded Data VIsualization</small></h1>
+      </div>
+      <hr>
+    </div>
+  </div>
+</div>
+<div class="container" id="content_main">
+  <div class="row">
+    {{ plot_div | indent(8) }}
+  </div>
+  <div class="row">
+    <p class="top-marg">
+      ADVI is an interactive plot showing output from the Weather Research
+      and Forecasting model run by the University of Arizona
+      <a href="https://forecasting.energy.arizona.edu" >UA Renewable Power Forecasting Group</a>
+      and the
+      <a href="http://has.arizona.edu" >UA Department of Hydrology and Atmospheric Sciences</a>.
+      The site was produced using the
+      <a href="https://bokeh.pydata.org" >Bokeh</a>
+      visualization library with map tiles provided by
+      <a href="https://stamen.com" >Stamen Design</a>.
+    </p>
+    <div class="well">
+      Use the left and right arrows to change the forecast hour. Clicking on a
+      the map will display the current value of the selected location in the
+      selected value text box. The histogram and mean value are based only on
+      the data currently displayed on the map.
+    </div>
+  </div>
+</div>
+{{ plot_script | indent(8) }}
+{% endblock %}
