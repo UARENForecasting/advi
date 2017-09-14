@@ -35,27 +35,54 @@ POSSIBLE_MODELS = ('WRFGFS_00Z', 'WRFGFS_06Z', 'WRFGFS_12Z',
                    'WRFNAM_00Z', 'WRFNAM_06Z', 'WRFNAM_12Z')
 
 
-def k_to_f(temp):
-    c = temp - 273.15
-    f = c * 9 / 5 + 32
-    return f
-
-
-def mm_to_in(x):
-    return x / 25.4
-
-
-def noop(x):
-    return x
-
-
 curdir = os.path.basename(os.path.dirname(__file__))
-if curdir == 'ghi':
+if curdir == 'radar':
+    MIN_VAL = -80
+    MAX_VAL = 80
+    VAR = 'REFD_MAX'
+    CMAP = 'plasma'
+    XLABEL = 'Max Radar Refl. (dbZ)'
+    NBINS = 25
+elif curdir == 'rain':
+    MIN_VAL = 0
+    MAX_VAL = 2
+    VAR = 'RAIN1H'
+    CMAP = 'magma'
+    XLABEL = 'One-hour Precip (in)'
+    NBINS = 25
+elif curdir == 'rainac':
+    MIN_VAL = 0
+    MAX_VAL = 2
+    VAR = 'RAINNC'
+    CMAP = 'magma'
+    XLABEL = 'Precip Accumulation (in)'
+    NBINS = 25
+elif curdir == 'dt':
+    MIN_VAL = -20
+    MAX_VAL = 20
+    VAR = 'DT'
+    CMAP = 'coolwarm'
+    XLABEL = 'One-Hour Temperature Change (°F)'
+    NBINS = 40
+elif curdir == 'temp':
+    MIN_VAL = 0
+    MAX_VAL = 120
+    VAR = 'T2'
+    CMAP = 'plasma'
+    XLABEL = '2m Temperature (°F)'
+    NBINS = 61
+elif curdir == 'wspd':
+    MIN_VAL = 0
+    MAX_VAL = 44
+    VAR = 'WSPD'
+    CMAP = 'viridis'
+    XLABEL = '10m Wind Speed (knots)'
+    NBINS = 25
+elif curdir == 'ghi':
     MIN_VAL = 0
     MAX_VAL = 1200
     VAR = 'SWDNB'
     CMAP = 'viridis'
-    CONVFUNC = noop
     XLABEL = 'GHI (W/m^2)'
     NBINS = 25
 elif curdir == 'dni':
@@ -63,57 +90,8 @@ elif curdir == 'dni':
     MAX_VAL = 1200
     VAR = 'SWDDNI'
     CMAP = 'viridis'
-    CONVFUNC = noop
     XLABEL = 'DNI (W/m^2)'
     NBINS = 25
-elif curdir == 'ws':
-    MIN_VAL = 0
-    MAX_VAL = 50
-    VAR = 'WS'
-    CMAP = 'viridis'
-    CONVFUNC = noop
-    XLABEL = '10m Wind Speed (m/s)'
-    NBINS = 25
-elif curdir == 'temp':
-    MIN_VAL = 0
-    MAX_VAL = 120
-    VAR = 'T2'
-    CMAP = 'plasma'
-    CONVFUNC = k_to_f
-    XLABEL = '2m Temperature (°F)'
-    NBINS = 61
-elif curdir == 'radar':
-    MIN_VAL = -80
-    MAX_VAL = 80
-    VAR = 'REFD_MAX'
-    CMAP = 'plasma'
-    CONVFUNC = noop
-    XLABEL = 'Max Radar Refl. (dbZ)'
-    NBINS = 25
-elif curdir == 'rainac':
-    MIN_VAL = 0
-    MAX_VAL = 2
-    VAR = 'RAINNC'
-    CMAP = 'magma'
-    CONVFUNC = mm_to_in
-    XLABEL = 'Rain Accumulation (in)'
-    NBINS = 25
-elif curdir == 'rain':
-    MIN_VAL = 0
-    MAX_VAL = 2
-    VAR = 'RAIN1H'
-    CMAP = 'magma'
-    CONVFUNC = mm_to_in
-    XLABEL = 'One-hour Precip (in)'
-    NBINS = 25
-elif curdir == 'dt':
-    MIN_VAL = -20
-    MAX_VAL = 20
-    VAR = 'DT'
-    CMAP = 'coolwarm'
-    CONVFUNC = noop
-    XLABEL = 'One-Hour Temperature Change (°F)'
-    NBINS = 40
 
 
 def load_file(model, fx_date='latest'):
@@ -142,8 +120,7 @@ def load_file(model, fx_date='latest'):
 
 def load_data(valid_date):
     strformat = '%Y%m%dT%H%MZ'
-    data = h5file.get_node(f'/{valid_date.strftime(strformat)}')[:]
-    regridded_data = CONVFUNC(data)
+    regridded_data = h5file.get_node(f'/{valid_date.strftime(strformat)}')[:]
     regridded_data[np.isnan(regridded_data)] = -999
 
     X = h5file.get_node('/X')[:]
@@ -376,9 +353,19 @@ def _update_data(update_range=False):
     local_data_source.data.update({'masked_regrid': [masked_regrid],
                                    'xn': [xn], 'yn': [yn],
                                    'valid_date': [valid_date]})
-    curdoc().add_next_tick_callback(partial(_update_map, update_range))
-    curdoc().add_timeout_callback(_update_histogram, 10)
-    curdoc().add_next_tick_callback(_move_hist_line)
+    try:
+        curdoc().add_next_tick_callback(partial(_update_map, update_range))
+    except ValueError:
+        pass
+    try:
+        curdoc().add_next_tick_callback(_update_histogram)
+    except ValueError:
+        pass
+    try:
+        curdoc().add_next_tick_callback(_move_hist_line)
+    except ValueError:
+        pass
+
     logging.debug('Done updating data')
 
 
@@ -457,7 +444,10 @@ def _move_hist_line():
     masked_regrid = local_data_source.data['masked_regrid'][0]
     val = masked_regrid[y_idx, x_idx]
     info_data.data.update({'current_val': [float(val)]})
-    doc.add_next_tick_callback(_update_div_text)
+    try:
+        doc.add_next_tick_callback(_update_div_text)
+    except ValueError:
+        pass
 
     if val <= MIN_VAL or val == np.nan:
         val = MIN_VAL * 1.05
