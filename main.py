@@ -1,3 +1,5 @@
+# coding: utf-8
+
 from collections import OrderedDict
 import datetime as dt
 from functools import partial
@@ -39,21 +41,80 @@ def k_to_f(temp):
     return f
 
 
+def mm_to_in(x):
+    return x / 25.4
+
+
+def noop(x):
+    return x
+
+
 curdir = os.path.basename(os.path.dirname(__file__))
 if curdir == 'ghi':
     MIN_VAL = 0
     MAX_VAL = 1200
     VAR = 'SWDNB'
     CMAP = 'viridis'
-    CONVFUNC = lambda x: x
+    CONVFUNC = noop
     XLABEL = 'GHI (W/m^2)'
-else:
+    NBINS = 25
+elif curdir == 'dni':
+    MIN_VAL = 0
+    MAX_VAL = 1200
+    VAR = 'SWDDNI'
+    CMAP = 'viridis'
+    CONVFUNC = noop
+    XLABEL = 'DNI (W/m^2)'
+    NBINS = 25
+elif curdir == 'ws':
+    MIN_VAL = 0
+    MAX_VAL = 50
+    VAR = 'WS'
+    CMAP = 'viridis'
+    CONVFUNC = noop
+    XLABEL = '10m Wind Speed (m/s)'
+    NBINS = 25
+elif curdir == 'temp':
     MIN_VAL = 0
     MAX_VAL = 120
     VAR = 'T2'
     CMAP = 'plasma'
     CONVFUNC = k_to_f
-    XLABEL = 'Temperature (°F)'
+    XLABEL = '2m Temperature (°F)'
+    NBINS = 61
+elif curdir == 'radar':
+    MIN_VAL = -80
+    MAX_VAL = 80
+    VAR = 'REFD_MAX'
+    CMAP = 'plasma'
+    CONVFUNC = noop
+    XLABEL = 'Max Radar Refl. (dbZ)'
+    NBINS = 25
+elif curdir == 'rainac':
+    MIN_VAL = 0
+    MAX_VAL = 2
+    VAR = 'RAINNC'
+    CMAP = 'magma'
+    CONVFUNC = mm_to_in
+    XLABEL = 'Rain Accumulation (in)'
+    NBINS = 25
+elif curdir == 'rain':
+    MIN_VAL = 0
+    MAX_VAL = 2
+    VAR = 'RAIN1H'
+    CMAP = 'magma'
+    CONVFUNC = mm_to_in
+    XLABEL = 'One-hour Precip (in)'
+    NBINS = 25
+elif curdir == 'dt':
+    MIN_VAL = -20
+    MAX_VAL = 20
+    VAR = 'DT'
+    CMAP = 'coolwarm'
+    CONVFUNC = noop
+    XLABEL = 'One-Hour Temperature Change (°F)'
+    NBINS = 40
+
 
 def load_file(model, fx_date='latest'):
     dir = os.path.expanduser(DATA_DIRECTORY)
@@ -101,6 +162,9 @@ def find_fx_times():
         except ValueError:
             logging.debug('%s does not conform to expected format', pp)
             continue
+        if not pp.joinpath(f'{VAR}.h5').exists():
+            logging.debug('No h5 file for %s in %s', VAR, pp)
+            continue
         date = datetime.strftime('%Y-%m-%d')
         out[date] = datetime
     return out
@@ -120,14 +184,15 @@ def get_models(date):
     p = Path(dir).expanduser()
     disabled = {model: True for model in POSSIBLE_MODELS}
     for pp in p.iterdir():
-        m = pp.parts[-1]
-        disabled[m] = False
+        if pp.joinpath(f'{VAR}.h5').exists():
+            m = pp.parts[-1]
+            disabled[m] = False
     mld = [(strfmodel(k), v) for k, v in disabled.items()]
     return mld
 
 
 # setup the coloring
-levels = MaxNLocator(nbins=25).tick_values(MIN_VAL, MAX_VAL)
+levels = MaxNLocator(nbins=NBINS).tick_values(MIN_VAL, MAX_VAL)
 cmap = get_cmap(CMAP)
 norm = BoundaryNorm(levels, ncolors=cmap.N, clip=True)
 sm = ScalarMappable(norm=norm, cmap=cmap)

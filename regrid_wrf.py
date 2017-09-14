@@ -37,6 +37,12 @@ def convert_time_str(time_bytes):
     return indx
 
 
+def k_to_f(temp):
+    c = temp - 273.15
+    f = c * 9 / 5 + 32
+    return f
+
+
 def read_subset(model, base_dir, day, variable):
     """Read a subset of the data from the grib file"""
     logging.info('Reading subset of data from grib file')
@@ -50,10 +56,20 @@ def read_subset(model, base_dir, day, variable):
     ds = nc4.Dataset(filename)
     lats = ds.variables['XLAT'][:]
     lons = ds.variables['XLONG'][:]
-    try:
+    if variable == 'WS':
+        u = ds.variables['U10'][:]
+        v = ds.variables['V10'][:]
+        data = np.sqrt(u**2 + v**2)
+    elif variable == 'RAIN1H':
+        rainac = ds.variables['RAINNC'][:]
+        diff = rainac[1:] - rainac[:-1]
+        data = np.concatenate((np.zeros(diff.shape[1:])[None], diff))
+    elif variable == 'DT':
+        t2 = k_to_f(ds.variables['T2'][:])
+        diff = t2[1:] - t2[:-1]
+        data = np.concatenate((np.zeros(diff.shape[1:])[None], diff))
+    else:
         data = ds.variables[variable][:]
-    except KeyError:
-        raise
     times = convert_time_str(ds.variables['Times'][:])
     valid_date = pd.Timestamp(ds.SIMULATION_START_DATE.replace('_', ' '))
     return data, lats, lons, times, valid_date
