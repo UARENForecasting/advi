@@ -3,6 +3,7 @@
 from collections import OrderedDict
 import datetime as dt
 from functools import partial
+import importlib
 import logging
 from pathlib import Path
 import os
@@ -27,79 +28,9 @@ from tornado import gen
 
 
 from models.disabled_select import DisabledSelect
-
-
-ALPHA = 0.7
-RED = '#AB0520'
-BLUE = '#0C234B'
-DATA_DIRECTORY = os.getenv('ADVI_DATADIR', '~/.wrf')
-POSSIBLE_MODELS = ('WRFGFS_00Z', 'WRFGFS_06Z', 'WRFGFS_12Z',
-                   'WRFNAM_00Z', 'WRFNAM_06Z', 'WRFNAM_12Z')
-MENU_VARS = (('2m Temperature', 'temp'),
-             ('1 hr Temperature Change', 'dt'),
-             ('10m Wind Speed', 'wspd'),
-             ('1 hr Precip', 'rain'),
-             ('Accumulated Precip', 'rainac'),
-             ('GHI', 'ghi'),
-             ('DNI', 'dni'))
-
-curdir = os.path.basename(os.path.dirname(__file__))
-if curdir == 'radar':
-    MIN_VAL = -80
-    MAX_VAL = 80
-    VAR = 'REFD_MAX'
-    CMAP = 'plasma'
-    XLABEL = 'Max Radar Refl. (dbZ)'
-    NBINS = 25
-elif curdir == 'rain':
-    MIN_VAL = 0
-    MAX_VAL = 2
-    VAR = 'RAIN1H'
-    CMAP = 'magma'
-    XLABEL = 'One-hour Precip (in)'
-    NBINS = 21
-elif curdir == 'rainac':
-    MIN_VAL = 0
-    MAX_VAL = 2
-    VAR = 'RAINNC'
-    CMAP = 'magma'
-    XLABEL = 'Precip Accumulation (in)'
-    NBINS = 21
-elif curdir == 'dt':
-    MIN_VAL = -20
-    MAX_VAL = 20
-    VAR = 'DT'
-    CMAP = 'coolwarm'
-    XLABEL = 'One-Hour Temperature Change (°F)'
-    NBINS = 40
-elif curdir == 'temp':
-    MIN_VAL = 0
-    MAX_VAL = 120
-    VAR = 'T2'
-    CMAP = 'plasma'
-    XLABEL = '2m Temperature (°F)'
-    NBINS = 61
-elif curdir == 'wspd':
-    MIN_VAL = 0
-    MAX_VAL = 44
-    VAR = 'WSPD'
-    CMAP = 'viridis'
-    XLABEL = '10m Wind Speed (knots)'
-    NBINS = 25
-elif curdir == 'ghi':
-    MIN_VAL = 0
-    MAX_VAL = 1200
-    VAR = 'SWDNB'
-    CMAP = 'viridis'
-    XLABEL = 'GHI (W/m^2)'
-    NBINS = 25
-elif curdir == 'dni':
-    MIN_VAL = 0
-    MAX_VAL = 1100
-    VAR = 'SWDDNI'
-    CMAP = 'viridis'
-    XLABEL = 'DNI (W/m^2)'
-    NBINS = 25
+import config
+# reload since sys.argv changes values
+config = importlib.reload(config)
 
 
 class H5File(object):
@@ -118,7 +49,7 @@ class H5File(object):
 
 
 def load_file(model, fx_date='latest'):
-    dir = os.path.expanduser(DATA_DIRECTORY)
+    dir = os.path.expanduser(config.DATA_DIRECTORY)
     if fx_date == 'latest':
         p = Path(dir)
         model_dir = sorted([pp for pp in p.rglob(f'*{model}')],
@@ -128,7 +59,7 @@ def load_file(model, fx_date='latest'):
                                  strpmodel(model))
 
     path = os.path.join(model_dir,
-                        f'{VAR}.h5')
+                        f'{config.VAR}.h5')
 
     global h5file
     h5file = H5File(path)
@@ -161,7 +92,7 @@ def load_tseries(xi, yi):
 
 
 def find_fx_times():
-    p = Path(DATA_DIRECTORY).expanduser()
+    p = Path(config.DATA_DIRECTORY).expanduser()
     out = OrderedDict()
     for pp in sorted(p.rglob(f'*WRF*')):
         try:
@@ -170,8 +101,8 @@ def find_fx_times():
         except ValueError:
             logging.debug('%s does not conform to expected format', pp)
             continue
-        if not pp.joinpath(f'{VAR}.h5').exists():
-            logging.debug('No h5 file for %s in %s', VAR, pp)
+        if not pp.joinpath(f'{config.VAR}.h5').exists():
+            logging.debug('No h5 file for %s in %s', config.VAR, pp)
             continue
         date = datetime.strftime('%Y-%m-%d')
         out[date] = datetime
@@ -188,11 +119,11 @@ def strpmodel(model):
 
 
 def get_models(date):
-    dir = os.path.join(DATA_DIRECTORY, date.strftime('%Y/%m/%d'))
+    dir = os.path.join(config.DATA_DIRECTORY, date.strftime('%Y/%m/%d'))
     p = Path(dir).expanduser()
-    disabled = {model: True for model in POSSIBLE_MODELS}
+    disabled = {model: True for model in config.POSSIBLE_MODELS}
     for pp in p.iterdir():
-        if pp.joinpath(f'{VAR}.h5').exists():
+        if pp.joinpath(f'{config.VAR}.h5').exists():
             m = pp.parts[-1]
             disabled[m] = False
     mld = [(strfmodel(k), v) for k, v in disabled.items()]
@@ -200,8 +131,9 @@ def get_models(date):
 
 
 # setup the coloring
-levels = MaxNLocator(nbins=NBINS).tick_values(MIN_VAL, MAX_VAL)
-cmap = get_cmap(CMAP)
+levels = MaxNLocator(nbins=config.NBINS).tick_values(
+    config.MIN_VAL, config.MAX_VAL)
+cmap = get_cmap(config.CMAP)
 norm = BoundaryNorm(levels, ncolors=cmap.N, clip=True)
 sm = ScalarMappable(norm=norm, cmap=cmap)
 color_pal = [RGB(*val).to_hex() for val in
@@ -210,7 +142,7 @@ color_mapper = LinearColorMapper(color_pal, low=sm.get_clim()[0],
                                  high=sm.get_clim()[1])
 ticker = FixedTicker(ticks=levels[::3])
 cb = ColorBar(color_mapper=color_mapper, location=(0, 0),
-              scale_alpha=ALPHA, ticker=ticker)
+              scale_alpha=config.ALPHA, ticker=ticker)
 
 # make the bokeh figures without the data yet
 width = 768
@@ -249,10 +181,10 @@ hheight = int(width / 2)
 # Make the histogram figure
 hist_fig = figure(plot_width=hheight, plot_height=hheight,
                   toolbar_location='right',
-                  x_axis_label=XLABEL,
+                  x_axis_label=config.XLABEL,
                   y_axis_label='Counts', tools=tools + ', ywheel_zoom',
                   active_scroll='ywheel_zoom',
-                  x_range=Range1d(start=MIN_VAL, end=MAX_VAL),
+                  x_range=Range1d(start=config.MIN_VAL, end=config.MAX_VAL),
                   title='Histogram of map pixels')
 
 # make histograms
@@ -266,14 +198,15 @@ hist_sources = [ColumnDataSource(data={'x': [bin_centers[i]],
                 for i in range(len(bin_centers))]
 for source in hist_sources:
     hist_fig.vbar(x='x', top='top', width='width', bottom='bottom',
-                  color='color', fill_alpha=ALPHA, source=source)
+                  color='color', fill_alpha=config.ALPHA, source=source)
 
 # line and point on map showing tapped location value
 line_source = ColumnDataSource(data={'x': [-1, -1], 'y': [0, 1]})
-hist_fig.line(x='x', y='y', color=RED, source=line_source, alpha=ALPHA)
+hist_fig.line(x='x', y='y', color=config.RED, source=line_source,
+              alpha=config.ALPHA)
 hover_pt = ColumnDataSource(data={'x': [0], 'y': [0], 'x_idx': [0],
                                   'y_idx': [0]})
-map_fig.x(x='x', y='y', size=10, color=RED, alpha=ALPHA,
+map_fig.x(x='x', y='y', size=10, color=config.RED, alpha=config.ALPHA,
           source=hover_pt, level='overlay')
 
 file_dict = find_fx_times()
@@ -300,10 +233,11 @@ local_data_source = ColumnDataSource(data={'masked_regrid': [0], 'xn': [0],
                                            'valid_date': [dt.datetime.now()]})
 
 # timeseries plot
-tseries_source = ColumnDataSource(data={'time': [0, 0],
-                                        'values': [MAX_VAL, MAX_VAL]})
+tseries_source = ColumnDataSource(
+    data={'time': [0, 0],
+          'values': [config.MAX_VAL, config.MAX_VAL]})
 curpt_source = ColumnDataSource(data={'time': [0],
-                                      'value': [MAX_VAL]})
+                                      'value': [config.MAX_VAL]})
 tseries_fig = figure(
     height=hheight, width=hheight,
     x_axis_type='datetime',
@@ -311,10 +245,10 @@ tseries_fig = figure(
     active_scroll='wheel_zoom',
     toolbar_location='right',
     title='Time-series at selected location',
-    y_axis_label=XLABEL)
+    y_axis_label=config.XLABEL)
 tseries_fig.line(x='time', y='values', source=tseries_source,
-                 color=BLUE)
-tseries_fig.diamond(x='time', y='value', color=RED, source=curpt_source,
+                 color=config.BLUE)
+tseries_fig.diamond(x='time', y='value', color=config.RED, source=curpt_source,
                     level='overlay', size=6)
 
 
@@ -347,7 +281,7 @@ def _update_histogram():
     except TypeError:
         return
     counts, _ = np.histogram(
-        new_subset.clip(max=MAX_VAL), bins=levels,
+        new_subset.clip(max=config.MAX_VAL), bins=levels,
         range=(levels.min(), levels.max()))
     line_source.data.update({'y': [0, counts.max()]})
     for i, source in enumerate(hist_sources):
@@ -373,13 +307,13 @@ def _update_map(update_range=False):
     logging.debug('Updating map...')
     valid_date = local_data_source.data['valid_date'][0]
     mfmt = '%Y-%m-%d %H:%M MST'
-    title = (f'UA WRF {XLABEL} valid at '
+    title = (f'UA WRF {config.XLABEL} valid at '
              f'{valid_date.tz_convert("MST").strftime(mfmt)}')
     map_fig.title.text = title
     masked_regrid = local_data_source.data['masked_regrid'][0]
     xn = local_data_source.data['xn'][0]
     yn = local_data_source.data['yn'][0]
-    rgba_vals = sm.to_rgba(masked_regrid, bytes=True, alpha=ALPHA)
+    rgba_vals = sm.to_rgba(masked_regrid, bytes=True, alpha=config.ALPHA)
     dx = xn[1] - xn[0]
     dy = yn[1] - yn[0]
     rgba_img_source.data.update({'image': [rgba_vals],
@@ -523,7 +457,7 @@ def _update_tseries():
 
     line_data = load_tseries(x_idx, y_idx)
     if len(line_data.dropna().values) < 1:
-        tseries_source.data.update({'values': [MAX_VAL],
+        tseries_source.data.update({'values': [config.MAX_VAL],
                                     'time': [0]})
     else:
         tseries_source.data.update({'values': line_data.values,
@@ -558,10 +492,10 @@ def _move_hist_line():
     except ValueError:
         pass
 
-    if val <= MIN_VAL or val == np.nan:
-        val = MIN_VAL * 1.05
-    elif val > MAX_VAL:
-        val = MAX_VAL * .99
+    if val <= config.MIN_VAL or val == np.nan:
+        val = config.MIN_VAL * 1.05
+    elif val > config.MAX_VAL:
+        val = config.MAX_VAL * .99
     line_source.data.update({'x': [val, val]})
 
 
@@ -599,4 +533,4 @@ doc.add_root(lay)
 doc.add_next_tick_callback(partial(_update_models, True))
 doc.add_timeout_callback(_update_data, 3000)
 doc.title = 'ADVI'
-doc.template_variables['menu_vars'] = MENU_VARS
+doc.template_variables['menu_vars'] = config.MENU_VARS

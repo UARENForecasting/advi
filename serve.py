@@ -8,16 +8,10 @@ from jinja2 import Environment, FileSystemLoader
 from tornado.web import RequestHandler
 
 
-env = Environment(loader=FileSystemLoader('templates'))
+from app.config import MENU_VARS, WS_ORIGIN
 
 
-MENU_VARS = (('2m Temperature', 'temp'),
-             ('1 hr Temperature Change', 'dt'),
-             ('10m Wind Speed', 'wspd'),
-             ('1 hr Precip', 'rain'),
-             ('Accumulated Precip', 'rainac'),
-             ('GHI', 'ghi'),
-             ('DNI', 'dni'))
+env = Environment(loader=FileSystemLoader('app/templates'))
 
 
 class IndexHandler(RequestHandler):
@@ -26,9 +20,12 @@ class IndexHandler(RequestHandler):
         self.write(template.render(menu_vars=MENU_VARS))
 
 
-apps = {f'/{fname}': Application(DirectoryHandler(filename=fname))
-        for _, fname in MENU_VARS}
+apps = {f'/{arg}': Application(DirectoryHandler(filename='app',
+                                                argv=[arg]))
+        for _, arg in MENU_VARS}
 server = Server(apps,
+                allow_websocket_origin=WS_ORIGIN,
+                use_xheaders=True,
                 extra_patterns=[('/', IndexHandler)])
 server.start()
 
