@@ -31,6 +31,8 @@ from models.disabled_select import DisabledSelect
 
 
 ALPHA = 0.7
+RED = '#AB0520'
+BLUE = '#0C234B'
 DATA_DIRECTORY = os.getenv('ARTSY_WRF_DATADIR', '~/.wrf')
 POSSIBLE_MODELS = ('WRFGFS_00Z', 'WRFGFS_06Z', 'WRFGFS_12Z',
                    'WRFNAM_00Z', 'WRFNAM_06Z', 'WRFNAM_12Z')
@@ -263,10 +265,10 @@ for source in hist_sources:
 
 # line and point on map showing tapped location value
 line_source = ColumnDataSource(data={'x': [-1, -1], 'y': [0, 1]})
-hist_fig.line(x='x', y='y', color='red', source=line_source, alpha=ALPHA)
+hist_fig.line(x='x', y='y', color=RED, source=line_source, alpha=ALPHA)
 hover_pt = ColumnDataSource(data={'x': [0], 'y': [0], 'x_idx': [0],
                                   'y_idx': [0]})
-map_fig.x(x='x', y='y', size=10, color='red', alpha=ALPHA,
+map_fig.x(x='x', y='y', size=10, color=RED, alpha=ALPHA,
           source=hover_pt, level='overlay')
 
 file_dict = find_fx_times()
@@ -295,6 +297,8 @@ local_data_source = ColumnDataSource(data={'masked_regrid': [0], 'xn': [0],
 # timeseries plot
 tseries_source = ColumnDataSource(data={'time': [0, 0],
                                         'values': [MAX_VAL, MAX_VAL]})
+curpt_source = ColumnDataSource(data={'time': [0],
+                                      'value': [MAX_VAL]})
 tseries_fig = figure(
     height=hheight, width=hheight,
     x_axis_type='datetime',
@@ -303,7 +307,10 @@ tseries_fig = figure(
     toolbar_location='right',
     title='Time-series at selected location',
     y_axis_label=XLABEL)
-tseries_fig.line(x='time', y='values', source=tseries_source)
+tseries_fig.line(x='time', y='values', source=tseries_source,
+                 color=BLUE)
+tseries_fig.diamond(x='time', y='value', color=RED, source=curpt_source,
+                    level='overlay', size=6)
 
 
 def update_histogram(attr, old, new):
@@ -412,6 +419,10 @@ def _update_data(update_range=False):
         curdoc().add_next_tick_callback(_move_hist_line)
     except ValueError:
         pass
+    try:
+        curdoc().add_next_tick_callback(_update_tseries_pt)
+    except ValueError:
+        pass
 
     logging.debug('Done updating data')
 
@@ -474,8 +485,13 @@ def move_click_marker(event):
 
 
 def time_setter(index):
-    return (index.tz_convert('MST').tz_localize(None).values.astype(int) /
-            10**6)
+    if isinstance(index, pd.DatetimeIndex):
+        return (index.tz_convert('MST').tz_localize(None).values.astype(int) /
+                10**6)
+    elif isinstance(index, pd.Timestamp):
+        return index.tz_convert('MST').tz_localize(None).value / 10**6
+    else:
+        raise AttributeError
 
 
 @gen.coroutine
@@ -507,6 +523,20 @@ def _update_tseries():
     else:
         tseries_source.data.update({'values': line_data.values,
                                     'time': time_setter(times)})
+    try:
+        doc.add_next_tick_callback(_update_tseries_pt)
+    except ValueError:
+        pass
+
+
+@gen.coroutine
+def _update_tseries_pt():
+    val = info_data.data['current_val'][0]
+    if val == np.nan:
+        val = 0
+    curtime = local_data_source.data['valid_date'][0]
+    curpt_source.data.update({'value': [val],
+                              'time': [time_setter(curtime)]})
 
 
 @gen.coroutine
