@@ -11,11 +11,10 @@ import warnings
 
 from bokeh import events
 from bokeh.colors import RGB
-from bokeh.layouts import gridplot, column, row, layout
+from bokeh.layouts import gridplot, column, row
 from bokeh.models import (
     Range1d, LinearColorMapper, ColorBar, FixedTicker,
-    ColumnDataSource, CustomJS, WMTSTileSource, Spacer,
-    Slider, WidgetBox)
+    ColumnDataSource, WMTSTileSource, Slider)
 from bokeh.models.widgets import Select, Div
 from bokeh.plotting import figure, curdoc
 from matplotlib.colors import BoundaryNorm
@@ -33,7 +32,7 @@ from models.disabled_select import DisabledSelect
 ALPHA = 0.7
 RED = '#AB0520'
 BLUE = '#0C234B'
-DATA_DIRECTORY = os.getenv('ARTSY_WRF_DATADIR', '~/.wrf')
+DATA_DIRECTORY = os.getenv('ADVI_DATADIR', '~/.wrf')
 POSSIBLE_MODELS = ('WRFGFS_00Z', 'WRFGFS_06Z', 'WRFGFS_12Z',
                    'WRFNAM_00Z', 'WRFNAM_06Z', 'WRFNAM_12Z')
 
@@ -52,14 +51,14 @@ elif curdir == 'rain':
     VAR = 'RAIN1H'
     CMAP = 'magma'
     XLABEL = 'One-hour Precip (in)'
-    NBINS = 25
+    NBINS = 21
 elif curdir == 'rainac':
     MIN_VAL = 0
     MAX_VAL = 2
     VAR = 'RAINNC'
     CMAP = 'magma'
     XLABEL = 'Precip Accumulation (in)'
-    NBINS = 25
+    NBINS = 21
 elif curdir == 'dt':
     MIN_VAL = -20
     MAX_VAL = 20
@@ -141,7 +140,7 @@ def load_data(valid_date):
 
         X = h5.get_node('/X')[:]
         Y = h5.get_node('/Y')[:]
-    masked_regrid = np.ma.masked_less(regridded_data, MIN_VAL)
+    masked_regrid = np.ma.masked_less(regridded_data, -998)
     return masked_regrid, X, Y
 
 
@@ -286,7 +285,7 @@ info_text = """
 <div class="well">
 <b>Selected Value:</b> {current_val:0.1f} <b>Area Mean:</b> {mean:0.1f} <b>Bin Width</b> {bin_width:0.1f}
 </div>
-"""
+"""  # NOQA
 info_div = Div(width=width)
 
 # Setup the updates for all the data
@@ -590,6 +589,7 @@ lay = column(row([select_day, select_model, select_fxtime]),
              info_div
              )
 doc = curdoc()
+doc.title = 'ADVI'
 doc.add_root(lay)
 doc.add_next_tick_callback(partial(_update_models, True))
 doc.add_timeout_callback(_update_data, 3000)
