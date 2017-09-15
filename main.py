@@ -35,7 +35,13 @@ BLUE = '#0C234B'
 DATA_DIRECTORY = os.getenv('ADVI_DATADIR', '~/.wrf')
 POSSIBLE_MODELS = ('WRFGFS_00Z', 'WRFGFS_06Z', 'WRFGFS_12Z',
                    'WRFNAM_00Z', 'WRFNAM_06Z', 'WRFNAM_12Z')
-
+MENU_VARS = (('2m Temperature', 'temp'),
+             ('1 hr Temperature Change', 'dt'),
+             ('10m Wind Speed', 'wspd'),
+             ('1 hr Precip', 'rain'),
+             ('Accumulated Precip', 'rainac'),
+             ('GHI', 'ghi'),
+             ('DNI', 'dni'))
 
 curdir = os.path.basename(os.path.dirname(__file__))
 if curdir == 'radar':
@@ -589,7 +595,8 @@ lay = column(row([select_day, select_model, select_fxtime]),
              info_div
              )
 doc = curdoc()
-doc.title = 'ADVI'
 doc.add_root(lay)
 doc.add_next_tick_callback(partial(_update_models, True))
 doc.add_timeout_callback(_update_data, 3000)
+doc.title = 'ADVI'
+doc.template_variables['menu_vars'] = MENU_VARS
