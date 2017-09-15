@@ -6,6 +6,7 @@ from functools import partial
 import logging
 from pathlib import Path
 import os
+import warnings
 
 
 from bokeh import events
@@ -87,7 +88,7 @@ elif curdir == 'ghi':
     NBINS = 25
 elif curdir == 'dni':
     MIN_VAL = 0
-    MAX_VAL = 1200
+    MAX_VAL = 1100
     VAR = 'SWDDNI'
     CMAP = 'viridis'
     XLABEL = 'DNI (W/m^2)'
@@ -277,10 +278,11 @@ times = []
 select_fxtime = Slider(title='Forecast Hour', start=0, end=1, value=0,
                        name='timeslider')
 info_data = ColumnDataSource(data={'current_val': [0], 'mean': [0],
+                                   'median': [0],
                                    'bin_width': [bin_width]})
 info_text = """
 <div class="well">
-<b>Selected Value:</b> {current_val:0.1f} <b>Mean:</b> {mean:0.1f} <b>Bin Width</b> {bin_width:0.1f}
+<b>Selected Value:</b> {current_val:0.1f} <b>Area Mean:</b> {mean:0.1f} <b>Bin Width</b> {bin_width:0.1f}
 </div>
 """
 info_div = Div(width=width)
@@ -291,7 +293,8 @@ local_data_source = ColumnDataSource(data={'masked_regrid': [0], 'xn': [0],
                                            'valid_date': [dt.datetime.now()]})
 
 # timeseries plot
-tseries_source = ColumnDataSource(data={'time': [0], 'values': [MAX_VAL]})
+tseries_source = ColumnDataSource(data={'time': [0, 0],
+                                        'values': [MAX_VAL, MAX_VAL]})
 tseries_fig = figure(
     height=hheight, width=hheight,
     x_axis_type='datetime',
@@ -301,8 +304,6 @@ tseries_fig = figure(
     title='Time-series at selected location',
     y_axis_label=XLABEL)
 tseries_fig.line(x='time', y='values', source=tseries_source)
-#tseries_fig.y_range.start = MIN_VAL
-#tseries_fig.y_range.end = MAX_VAL
 
 
 def update_histogram(attr, old, new):
@@ -459,6 +460,11 @@ def _update_file(update_range=False):
     except ValueError:
         pass
 
+    try:
+        doc.add_next_tick_callback(_update_tseries)
+    except ValueError:
+        pass
+
 
 def move_click_marker(event):
     try:
@@ -486,14 +492,21 @@ def _move_click_marker(event):
     hover_pt.data.update({'x': [xn[x_idx]], 'y': [yn[y_idx]],
                           'x_idx': [x_idx], 'y_idx': [y_idx]})
     curdoc().add_next_tick_callback(_move_hist_line)
-    curdoc().add_next_tick_callback(partial(_update_tseries, x_idx, y_idx))
+    curdoc().add_next_tick_callback(_update_tseries)
 
 
 @gen.coroutine
-def _update_tseries(x_idx, y_idx):
+def _update_tseries():
+    x_idx = hover_pt.data['x_idx'][0]
+    y_idx = hover_pt.data['y_idx'][0]
+
     line_data = load_tseries(x_idx, y_idx)
-    tseries_source.data.update({'values': line_data.values,
-                                'time': time_setter(times)})
+    if len(line_data.dropna().values) < 1:
+        tseries_source.data.update({'values': [MAX_VAL],
+                                    'time': [0]})
+    else:
+        tseries_source.data.update({'values': line_data.values,
+                                    'time': time_setter(times)})
 
 
 @gen.coroutine
@@ -501,8 +514,10 @@ def _move_hist_line():
     x_idx = hover_pt.data['x_idx'][0]
     y_idx = hover_pt.data['y_idx'][0]
     masked_regrid = local_data_source.data['masked_regrid'][0]
-    val = masked_regrid[y_idx, x_idx]
-    info_data.data.update({'current_val': [float(val)]})
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore')
+        val = float(masked_regrid[y_idx, x_idx])
+    info_data.data.update({'current_val': [val]})
     try:
         doc.add_next_tick_callback(_update_div_text)
     except ValueError:
