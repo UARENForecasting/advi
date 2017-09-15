@@ -532,5 +532,5 @@ doc = curdoc()
 doc.add_root(lay)
 doc.add_next_tick_callback(partial(_update_models, True))
 doc.add_timeout_callback(_update_data, 3000)
-doc.title = 'ADVI'
+doc.title = config.TITLE
 doc.template_variables['menu_vars'] = config.MENU_VARS
