@@ -1,0 +1,7 @@
+bokeh==0.12.9
+matplotlib==2.0.2
+numpy==1.13.1
+pandas==0.20.3
+tables==3.4.2
+scipy==0.19.1
+netCDF4==1.2.9

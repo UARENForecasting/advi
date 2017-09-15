@@ -22,6 +22,27 @@ import tables
 FILENAME = 'wrfsolar_d02_hourly.nc'
 
 
+def k_to_f(temp):
+    c = temp - 273.15
+    f = c * 9 / 5 + 32
+    return f
+
+
+def mm_to_in(x):
+    return x / 25.4
+
+
+def mps_to_knots(x):
+    return x * 1.94384
+
+
+CONV_DICT = {'WSPD': mps_to_knots,
+             'T2': k_to_f,
+             'RAINNC': mm_to_in,
+             'RAIN1H': mm_to_in,
+             }
+
+
 def webmerc_proj(lat, lon):
     """Convert latititude and longitude to web mercator"""
     R = 6378137
@@ -37,12 +58,6 @@ def convert_time_str(time_bytes):
     return indx
 
 
-def k_to_f(temp):
-    c = temp - 273.15
-    f = c * 9 / 5 + 32
-    return f
-
-
 def read_subset(model, base_dir, day, variable):
     """Read a subset of the data from the grib file"""
     logging.info('Reading subset of data from grib file')
@@ -56,7 +71,7 @@ def read_subset(model, base_dir, day, variable):
     ds = nc4.Dataset(filename)
     lats = ds.variables['XLAT'][:]
     lons = ds.variables['XLONG'][:]
-    if variable == 'WS':
+    if variable == 'WSPD':
         u = ds.variables['U10'][:]
         v = ds.variables['V10'][:]
         data = np.sqrt(u**2 + v**2)
@@ -70,6 +85,8 @@ def read_subset(model, base_dir, day, variable):
         data = np.concatenate((np.zeros(diff.shape[1:])[None], diff))
     else:
         data = ds.variables[variable][:]
+    if variable in CONV_DICT:
+        data = CONV_DICT[variable](data)
     times = convert_time_str(ds.variables['Times'][:])
     valid_date = pd.Timestamp(ds.SIMULATION_START_DATE.replace('_', ' '))
     return data, lats, lons, times, valid_date
@@ -150,7 +167,7 @@ def main():
     argparser.add_argument('-o', '--overwrite', action='store_true',
                            help='Overwrite file if already exists')
     argparser.add_argument('--var', help='Variable to get from WRF file',
-                           default='T2')
+                           action='append')
     argparser.add_argument('--base-dir', help='Base directory with WRF files',
                            default='/a4/uaren/')
     argparser.add_argument('-d', '--day', help='Day to get data from')
@@ -169,11 +186,12 @@ def main():
     else:
         day = pd.Timestamp(args.day).date()
 
-    data, lats, lons, times, valid_date = read_subset(args.model,
-                                                      args.base_dir,
-                                                      day, args.var)
-    regrid_and_save(data, lats, lons, times, valid_date, args.overwrite,
-                    args.save_dir, args.var, args.model)
+    for var in args.var:
+        data, lats, lons, times, valid_date = read_subset(args.model,
+                                                          args.base_dir,
+                                                          day, var)
+        regrid_and_save(data, lats, lons, times, valid_date, args.overwrite,
+                        args.save_dir, var, args.model)
 
 
 if __name__ == '__main__':
