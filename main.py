@@ -10,11 +10,11 @@ import os
 
 from bokeh import events
 from bokeh.colors import RGB
-from bokeh.layouts import gridplot, column, row
+from bokeh.layouts import gridplot, column, row, layout
 from bokeh.models import (
     Range1d, LinearColorMapper, ColorBar, FixedTicker,
     ColumnDataSource, CustomJS, WMTSTileSource, Spacer,
-    Slider)
+    Slider, WidgetBox)
 from bokeh.models.widgets import Select, Div
 from bokeh.plotting import figure, curdoc
 from matplotlib.colors import BoundaryNorm
@@ -129,6 +129,15 @@ def load_data(valid_date):
     return masked_regrid, X, Y
 
 
+def load_tseries(xi, yi):
+    strformat = '%Y%m%dT%H%MZ'
+    rd = []
+    for t in times:
+        rd.append(h5file.get_node(f'/{t.strftime(strformat)}')[yi, xi])
+    data = pd.Series(rd, index=times)
+    return data
+
+
 def find_fx_times():
     p = Path(DATA_DIRECTORY).expanduser()
     out = OrderedDict()
@@ -182,15 +191,17 @@ cb = ColorBar(color_mapper=color_mapper, location=(0, 0),
               scale_alpha=ALPHA, ticker=ticker)
 
 # make the bokeh figures without the data yet
-width = 600
-height = 400
-sfmt = '%Y-%m-%d %HZ'
+width = 768
+height = int(width / 1.6)
+
 tools = 'pan, box_zoom, reset, save'
 map_fig = figure(plot_width=width, plot_height=height,
                  y_axis_type=None, x_axis_type=None,
                  toolbar_location='left', tools=tools + ', wheel_zoom',
                  active_scroll='wheel_zoom',
-                 title='', name='bkfig')
+                 title='', name='bkfig',
+                 responsive=True)
+
 
 rgba_img_source = ColumnDataSource(data={'image': [], 'x': [], 'y': [],
                                          'dw': [], 'dh': []})
@@ -212,13 +223,15 @@ STAMEN_TONER = WMTSTileSource(
 map_fig.add_tile(STAMEN_TONER)
 map_fig.add_layout(cb, 'right')
 
+hheight = int(width / 2)
 # Make the histogram figure
-hist_fig = figure(plot_width=height, plot_height=height,
+hist_fig = figure(plot_width=hheight, plot_height=hheight,
                   toolbar_location='right',
                   x_axis_label=XLABEL,
                   y_axis_label='Counts', tools=tools + ', ywheel_zoom',
                   active_scroll='ywheel_zoom',
-                  x_range=Range1d(start=MIN_VAL, end=MAX_VAL))
+                  x_range=Range1d(start=MIN_VAL, end=MAX_VAL),
+                  title='Histogram of map pixels')
 
 # make histograms
 bin_width = levels[1] - levels[0]
@@ -249,18 +262,33 @@ select_model = DisabledSelect(title='Initialization', value='',
 times = []
 select_fxtime = Slider(title='Forecast Hour', start=0, end=1, value=0,
                        name='timeslider')
-info_data = ColumnDataSource(data={'current_val': [0], 'mean': [0]})
+info_data = ColumnDataSource(data={'current_val': [0], 'mean': [0],
+                                   'bin_width': [bin_width]})
 info_text = """
 <div class="well">
-<b>Selected Value:</b> {current_val:0.1f} <b>Mean:</b> {mean:0.1f}
+<b>Selected Value:</b> {current_val:0.1f} <b>Mean:</b> {mean:0.1f} <b>Bin Width</b> {bin_width:0.1f}
 </div>
 """
-info_div = Div(sizing_mode='scale_width')
+info_div = Div(width=width)
 
 # Setup the updates for all the data
 local_data_source = ColumnDataSource(data={'masked_regrid': [0], 'xn': [0],
                                            'yn': [0],
                                            'valid_date': [dt.datetime.now()]})
+
+# timeseries plot
+tseries_source = ColumnDataSource(data={'time': [0], 'values': [MAX_VAL]})
+tseries_fig = figure(
+    height=hheight, width=hheight,
+    x_axis_type='datetime',
+    tools=tools + ', wheel_zoom',
+    active_scroll='wheel_zoom',
+    toolbar_location='right',
+    title='Time-series at selected location',
+    y_axis_label=XLABEL)
+tseries_fig.line(x='time', y='values', source=tseries_source)
+#tseries_fig.y_range.start = MIN_VAL
+#tseries_fig.y_range.end = MAX_VAL
 
 
 def update_histogram(attr, old, new):
@@ -300,7 +328,10 @@ def _update_histogram():
     logging.debug('Done updating histogram')
 
     info_data.data.update({'mean': [float(new_subset.mean())]})
-    doc.add_next_tick_callback(_update_div_text)
+    try:
+        doc.add_next_tick_callback(_update_div_text)
+    except ValueError:
+        pass
 
 
 def update_map(attr, old, new):
@@ -314,8 +345,9 @@ def update_map(attr, old, new):
 def _update_map(update_range=False):
     logging.debug('Updating map...')
     valid_date = local_data_source.data['valid_date'][0]
-    model = select_model.value
-    title = f'WRF {XLABEL} valid at {valid_date.strftime(sfmt)}'
+    mfmt = '%Y-%m-%d %H:%M MST'
+    title = (f'UA WRF {XLABEL} valid at '
+             f'{valid_date.tz_convert("MST").strftime(mfmt)}')
     map_fig.title.text = title
     masked_regrid = local_data_source.data['masked_regrid'][0]
     xn = local_data_source.data['xn'][0]
@@ -421,6 +453,11 @@ def move_click_marker(event):
         pass
 
 
+def time_setter(index):
+    return (index.tz_convert('MST').tz_localize(None).values.astype(int) /
+            10**6)
+
+
 @gen.coroutine
 def _move_click_marker(event):
     x = event.x
@@ -435,6 +472,14 @@ def _move_click_marker(event):
     hover_pt.data.update({'x': [xn[x_idx]], 'y': [yn[y_idx]],
                           'x_idx': [x_idx], 'y_idx': [y_idx]})
     curdoc().add_next_tick_callback(_move_hist_line)
+    curdoc().add_next_tick_callback(partial(_update_tseries, x_idx, y_idx))
+
+
+@gen.coroutine
+def _update_tseries(x_idx, y_idx):
+    line_data = load_tseries(x_idx, y_idx)
+    tseries_source.data.update({'values': line_data.values,
+                                'time': time_setter(times)})
 
 
 @gen.coroutine
@@ -460,8 +505,10 @@ def _move_hist_line():
 def _update_div_text():
     current_val = info_data.data['current_val'][0]
     mean = info_data.data['mean'][0]
+    bin_width = info_data.data['bin_width'][0]
     info_div.text = info_text.format(current_val=current_val,
-                                     mean=mean)
+                                     mean=mean,
+                                     bin_width=bin_width)
 
 
 # python callbacks
@@ -476,8 +523,13 @@ select_model.on_change('value', update_file)
 select_fxtime.on_change('value', update_data)
 
 # layout the document
-lay = column(row([select_day, select_model, select_fxtime, info_div]),
-             row([map_fig, hist_fig]))
+lay = column(row([select_day, select_model, select_fxtime]),
+             gridplot([map_fig],
+                      [tseries_fig, hist_fig],
+                      toolbar_location='left',
+                      ),
+             info_div
+             )
 doc = curdoc()
 doc.add_root(lay)
 doc.add_next_tick_callback(partial(_update_models, True))
