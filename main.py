@@ -94,6 +94,21 @@ elif curdir == 'dni':
     NBINS = 25
 
 
+class H5File(object):
+    def __init__(self, path):
+        self.path = path
+
+    def __enter__(self):
+        self.t = tables.open_file(self.path, mode='r')
+        return self.t
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        try:
+            self.t.close()
+        except:
+            pass
+
+
 def load_file(model, fx_date='latest'):
     dir = os.path.expanduser(DATA_DIRECTORY)
     if fx_date == 'latest':
@@ -108,23 +123,21 @@ def load_file(model, fx_date='latest'):
                         f'{VAR}.h5')
 
     global h5file
-    try:
-        h5file.close()
-    except:
-        pass
-    h5file = tables.open_file(path, mode='r')
+    h5file = H5File(path)
     global times
-    times = pd.DatetimeIndex(
-        h5file.get_node('/times')[:]).tz_localize('UTC')
+    with h5file as h5:
+        times = pd.DatetimeIndex(
+            h5.get_node('/times')[:]).tz_localize('UTC')
 
 
 def load_data(valid_date):
     strformat = '%Y%m%dT%H%MZ'
-    regridded_data = h5file.get_node(f'/{valid_date.strftime(strformat)}')[:]
-    regridded_data[np.isnan(regridded_data)] = -999
+    with h5file as h5:
+        regridded_data = h5.get_node(f'/{valid_date.strftime(strformat)}')[:]
+        regridded_data[np.isnan(regridded_data)] = -999
 
-    X = h5file.get_node('/X')[:]
-    Y = h5file.get_node('/Y')[:]
+        X = h5.get_node('/X')[:]
+        Y = h5.get_node('/Y')[:]
     masked_regrid = np.ma.masked_less(regridded_data, MIN_VAL)
     return masked_regrid, X, Y
 
@@ -132,8 +145,9 @@ def load_data(valid_date):
 def load_tseries(xi, yi):
     strformat = '%Y%m%dT%H%MZ'
     rd = []
-    for t in times:
-        rd.append(h5file.get_node(f'/{t.strftime(strformat)}')[yi, xi])
+    with h5file as h5:
+        for t in times:
+            rd.append(h5.get_node(f'/{t.strftime(strformat)}')[yi, xi])
     data = pd.Series(rd, index=times)
     return data
 
@@ -534,4 +548,3 @@ doc = curdoc()
 doc.add_root(lay)
 doc.add_next_tick_callback(partial(_update_models, True))
 doc.add_timeout_callback(_update_data, 3000)
-#doc.add_next_tick_callback(partial(_update_data, True))
