@@ -5,9 +5,13 @@
     </div>
     <div id="navbar" class="navbar-collapse collapse">
       <ul class="nav navbar-nav">
+        {% if prefix %}
+          <li><a class="page-link" href="/{{ prefix }}">Home</a></li>
+        {% else %}
           <li><a class="page-link" href="/">Home</a></li>
+        {% endif %}
           {% for label, link in menu_vars %}
-          <li><a class="page-link" href="/{{ link }}">{{ label }}</a></li>
+          <li><a class="page-link" href="{{ link }}">{{ label }}</a></li>
           {% endfor %}
       </ul>
     </div>

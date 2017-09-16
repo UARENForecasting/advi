@@ -534,3 +534,4 @@ doc.add_next_tick_callback(partial(_update_models, True))
 doc.add_timeout_callback(_update_data, 3000)
 doc.title = config.TITLE
 doc.template_variables['menu_vars'] = config.MENU_VARS
+doc.template_variables['prefix'] = config.PREFIX
