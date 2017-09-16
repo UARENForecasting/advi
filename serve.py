@@ -6,6 +6,7 @@ import os
 from bokeh.application import Application
 from bokeh.application.handlers import DirectoryHandler
 from bokeh.server.server import Server
+from bokeh.server.views.static_handler import StaticHandler
 from jinja2 import Environment, FileSystemLoader
 from tornado.web import RequestHandler, StaticFileHandler
 
@@ -44,7 +45,9 @@ if __name__ == '__main__':
     extra_patterns = [(make_url('?'), IndexHandler),
                       (make_url('(favicon.ico)'),
                        StaticFileHandler,
-                       {'path': "app/static"})]
+                       {'path': "app/static"}),
+                      (make_url('static/(.*)'),
+                       StaticHandler)]
     paths = [a[0] for a in extra_patterns]
     paths.extend(list(apps.keys()))
     logging.info('Running on localhost:5006 with paths:\n%s', '\n'.join(paths))
