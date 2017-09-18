@@ -1,13 +1,13 @@
 #! /usr/bin/env python
 """
-Download the MRMS data, get only the given area, project to web mercator,
-and regrid onto a regular grid for later plotting.
+Regrid data from WRF hourly files into web mercator for plotting
 """
 import argparse
 import datetime as dt
 from functools import partial
 import logging
 import os
+import shutil
 import sys
 import warnings
 
@@ -59,8 +59,8 @@ def convert_time_str(time_bytes):
 
 
 def read_subset(model, base_dir, day, variable):
-    """Read a subset of the data from the grib file"""
-    logging.info('Reading subset of data from grib file')
+    """Read a subset of the data from the netCDF4 file"""
+    logging.info('Reading subset of data from file')
     filename = os.path.join(os.path.expanduser(base_dir),
                             day.strftime('%Y/%m/%d'),
                             model,
@@ -98,7 +98,8 @@ def regrid_and_save(data, lats, lons, times, valid_date, overwrite, save_dir,
     logging.info('Regridding data...')
     x, y = webmerc_proj(lats, lons)
 
-    h5file = create_file(save_dir, valid_date, model, f'{var}.h5', overwrite)
+    h5file, tmp_path, path = create_file(
+        save_dir, valid_date, model, f'{var}.h5', overwrite)
     save = partial(save_data, h5file)
 
     shape = data.shape
@@ -123,6 +124,7 @@ def regrid_and_save(data, lats, lons, times, valid_date, overwrite, save_dir,
     h5file.create_array('/', 'times', times.values.astype(int))
     h5file.root._v_attrs.valid_date = valid_date
     h5file.close()
+    shutil.move(tmp_path, path)
 
 
 def create_file(base_dir, valid_date, model, filename, overwrite):
@@ -133,19 +135,20 @@ def create_file(base_dir, valid_date, model, filename, overwrite):
         os.makedirs(thedir)
 
     path = os.path.join(thedir, filename)
+    tmp_path = os.path.join(thedir, '.' + filename)
     logging.info('Creating h5 file at %s', path)
     if os.path.isfile(path) and not overwrite:
         logging.error('%s already exists', path)
-        sys.exit(1)
+        raise FileExistsError
     f = tables.Filters(fletcher32=True, shuffle=True, complib='blosc:zlib',
                        complevel=5)
-    h5file = tables.open_file(path, mode='w', filters=f)
-    return h5file
+    h5file = tables.open_file(tmp_path, mode='w', filters=f)
+    return h5file, tmp_path, path
 
 
 def save_data(h5file, ddict):
     """Save the data and grid to a numpy file"""
-    logging.info('Saving numpy data to a file...')
+    logging.debug('Saving data to the file...')
     with warnings.catch_warnings():
         warnings.simplefilter('ignore')
         for k, v in ddict.items():
@@ -186,12 +189,19 @@ def main():
     else:
         day = pd.Timestamp(args.day).date()
 
+    errors = 0
     for var in args.var:
         data, lats, lons, times, valid_date = read_subset(args.model,
                                                           args.base_dir,
                                                           day, var)
-        regrid_and_save(data, lats, lons, times, valid_date, args.overwrite,
-                        args.save_dir, var, args.model)
+        try:
+            regrid_and_save(data, lats, lons, times, valid_date,
+                            args.overwrite, args.save_dir, var, args.model)
+        except FileExistsError:
+            errors += 1
+            continue
+    if errors == len(args.var):
+        sys.exit(1)
 
 
 if __name__ == '__main__':

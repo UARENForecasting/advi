@@ -515,6 +515,7 @@ map_fig.x_range.on_change('end', update_histogram)
 map_fig.y_range.on_change('start', update_histogram)
 map_fig.y_range.on_change('end', update_histogram)
 map_fig.on_event(events.Tap, move_click_marker)
+map_fig.on_event(events.Press, move_click_marker)
 
 select_day.on_change('value', update_models)
 select_model.on_change('value', update_file)
@@ -533,5 +534,7 @@ doc.add_root(lay)
 doc.add_next_tick_callback(partial(_update_models, True))
 doc.add_timeout_callback(_update_data, 3000)
 doc.title = config.TITLE
-doc.template_variables['menu_vars'] = config.MENU_VARS
-doc.template_variables['prefix'] = config.PREFIX
+doc.template_variables.update({
+    'menu_vars': config.MENU_VARS,
+    'prefix': config.PREFIX,
+    'ga_tracking_id': config.GA_TRACKING_ID})
