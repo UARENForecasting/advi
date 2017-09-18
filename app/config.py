@@ -18,7 +18,8 @@ WS_ORIGIN = os.getenv('WS_ORIGIN', 'localhost:5006')
 GA_TRACKING_ID = os.getenv('ADVI_TRACKING_ID', '')
 PREFIX = os.getenv('ADVI_PREFIX', '')
 POSSIBLE_MODELS = ('WRFGFS_00Z', 'WRFGFS_06Z', 'WRFGFS_12Z',
-                   'WRFNAM_00Z', 'WRFNAM_06Z', 'WRFNAM_12Z')
+                   'WRFNAM_00Z', 'WRFNAM_06Z', 'WRFNAM_12Z',
+                   'WRFRUC_12Z')
 
 MENU_VARS = (('2m Temperature', 'temp'),
              ('1 hr Temperature Change', 'dt'),
