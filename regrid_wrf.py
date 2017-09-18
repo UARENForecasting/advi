@@ -8,6 +8,7 @@ import datetime as dt
 from functools import partial
 import logging
 import os
+import shutil
 import sys
 import warnings
 
@@ -98,7 +99,8 @@ def regrid_and_save(data, lats, lons, times, valid_date, overwrite, save_dir,
     logging.info('Regridding data...')
     x, y = webmerc_proj(lats, lons)
 
-    h5file = create_file(save_dir, valid_date, model, f'{var}.h5', overwrite)
+    h5file, tmp_path, path = create_file(
+        save_dir, valid_date, model, f'{var}.h5', overwrite)
     save = partial(save_data, h5file)
 
     shape = data.shape
@@ -123,6 +125,7 @@ def regrid_and_save(data, lats, lons, times, valid_date, overwrite, save_dir,
     h5file.create_array('/', 'times', times.values.astype(int))
     h5file.root._v_attrs.valid_date = valid_date
     h5file.close()
+    shutil.move(tmp_path, path)
 
 
 def create_file(base_dir, valid_date, model, filename, overwrite):
@@ -133,14 +136,15 @@ def create_file(base_dir, valid_date, model, filename, overwrite):
         os.makedirs(thedir)
 
     path = os.path.join(thedir, filename)
+    tmp_path = os.path.join(thedir, '.' + filename)
     logging.info('Creating h5 file at %s', path)
     if os.path.isfile(path) and not overwrite:
         logging.error('%s already exists', path)
         sys.exit(1)
     f = tables.Filters(fletcher32=True, shuffle=True, complib='blosc:zlib',
                        complevel=5)
-    h5file = tables.open_file(path, mode='w', filters=f)
-    return h5file
+    h5file = tables.open_file(tmp_path, mode='w', filters=f)
+    return h5file, tmp_path, path
 
 
 def save_data(h5file, ddict):
