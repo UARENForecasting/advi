@@ -515,6 +515,7 @@ map_fig.x_range.on_change('end', update_histogram)
 map_fig.y_range.on_change('start', update_histogram)
 map_fig.y_range.on_change('end', update_histogram)
 map_fig.on_event(events.Tap, move_click_marker)
+map_fig.on_event(events.Press, move_click_marker)
 
 select_day.on_change('value', update_models)
 select_model.on_change('value', update_file)
