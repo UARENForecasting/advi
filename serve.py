@@ -11,7 +11,7 @@ from jinja2 import Environment, FileSystemLoader
 from tornado.web import RequestHandler, StaticFileHandler
 
 
-from app.config import MENU_VARS, WS_ORIGIN, PREFIX
+from app.config import MENU_VARS, WS_ORIGIN, PREFIX, GA_TRACKING_ID
 
 
 env = Environment(loader=FileSystemLoader('app/templates'))
@@ -31,7 +31,8 @@ class IndexHandler(RequestHandler):
     def get(self):
         template = env.get_template('app_index.html')
         mv = [(a[0], make_url(a[1])) for a in MENU_VARS]
-        self.write(template.render(menu_vars=mv, prefix=PREFIX))
+        self.write(template.render(menu_vars=mv, prefix=PREFIX,
+                                   ga_tracking_id=GA_TRACKING_ID))
 
 
 if __name__ == '__main__':
