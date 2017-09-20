@@ -28,6 +28,7 @@ from tornado import gen
 
 
 from models.disabled_select import DisabledSelect
+from models.binned_color_mapper import BinnedColorMapper
 import config
 # reload since sys.argv changes values
 config = importlib.reload(config)
@@ -140,6 +141,9 @@ color_pal = [RGB(*val).to_hex() for val in
              sm.to_rgba(levels, bytes=True, norm=True)[:-1]]
 color_mapper = LinearColorMapper(color_pal, low=sm.get_clim()[0],
                                  high=sm.get_clim()[1])
+bin_pal = color_pal.copy()
+bin_pal.append('#ffffff')
+bin_mapper = BinnedColorMapper(bin_pal, alpha=config.ALPHA)
 ticker = FixedTicker(ticks=levels[::3])
 cb = ColorBar(color_mapper=color_mapper, location=(0, 0),
               scale_alpha=config.ALPHA, ticker=ticker)
@@ -159,8 +163,8 @@ map_fig = figure(plot_width=width, plot_height=height,
 
 rgba_img_source = ColumnDataSource(data={'image': [], 'x': [], 'y': [],
                                          'dw': [], 'dh': []})
-rgba_img = map_fig.image_rgba(image='image', x='x', y='y', dw='dw', dh='dh',
-                              source=rgba_img_source)
+rgba_img = map_fig.image(image='image', x='x', y='y', dw='dw', dh='dh',
+                         source=rgba_img_source, color_mapper=bin_mapper)
 
 
 # Need to use this and not bokeh.tile_providers.STAMEN_TONER
@@ -313,10 +317,10 @@ def _update_map(update_range=False):
     masked_regrid = local_data_source.data['masked_regrid'][0]
     xn = local_data_source.data['xn'][0]
     yn = local_data_source.data['yn'][0]
-    rgba_vals = sm.to_rgba(masked_regrid, bytes=True, alpha=config.ALPHA)
     dx = xn[1] - xn[0]
     dy = yn[1] - yn[0]
-    rgba_img_source.data.update({'image': [rgba_vals],
+    vals = np.digitize(masked_regrid.filled(np.inf), levels).astype('uint8')
+    rgba_img_source.data.update({'image': [vals],
                                  'x': [xn[0] - dx / 2],
                                  'y': [yn[0] - dy / 2],
                                  'dw': [xn[-1] - xn[0] + dx],
@@ -532,7 +536,7 @@ lay = column(row([select_day, select_model, select_fxtime]),
 doc = curdoc()
 doc.add_root(lay)
 doc.add_next_tick_callback(partial(_update_models, True))
-doc.add_timeout_callback(_update_data, 3000)
+doc.add_timeout_callback(_update_data, 5000)
 doc.title = config.TITLE
 doc.template_variables.update({
     'menu_vars': config.MENU_VARS,
