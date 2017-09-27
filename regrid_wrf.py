@@ -14,9 +14,9 @@ import warnings
 
 import pandas as pd
 import numpy as np
-import netCDF4 as nc4
 import scipy.interpolate
 import tables
+import xarray as xr
 
 
 FILENAME = 'wrfsolar_d02_hourly.nc'
@@ -68,28 +68,32 @@ def read_subset(model, base_dir, day, variable):
     if not os.path.isfile(filename):
         logging.error('File %s does not exist', filename)
         sys.exit(1)
-    ds = nc4.Dataset(filename)
-    lats = ds.variables['XLAT'][:]
-    lons = ds.variables['XLONG'][:]
+    ds = xr.open_dataset(filename, chunks={'south_north': 24, 'west_east': 39})
+    # chunks likely unique to UA WRF files
+    lats = ds['XLAT'][:].values
+    lons = ds['XLONG'][:].values
     if variable == 'WSPD':
-        u = ds.variables['U10'][:]
-        v = ds.variables['V10'][:]
+        u = ds['U10'][:]
+        v = ds['V10'][:]
         data = np.sqrt(u**2 + v**2)
     elif variable == 'RAIN1H':
-        rainac = ds.variables['RAINNC'][:]
+        rainac = ds['RAINNC'][:]
         diff = rainac[1:] - rainac[:-1]
         data = np.concatenate((np.zeros(diff.shape[1:])[None], diff))
     elif variable == 'DT':
-        t2 = k_to_f(ds.variables['T2'][:])
+        t2 = k_to_f(ds['T2'][:])
         diff = t2[1:] - t2[:-1]
         data = np.concatenate((np.zeros(diff.shape[1:])[None], diff))
+    elif variable == 'MDBZ':
+        dbz = ds['REFL_10CM'][:]
+        data = np.amax(dbz, axis=-3)
     else:
-        data = ds.variables[variable][:]
+        data = ds[variable][:]
     if variable in CONV_DICT:
         data = CONV_DICT[variable](data)
-    times = convert_time_str(ds.variables['Times'][:])
+    times = convert_time_str(ds['Times'][:].values)
     valid_date = pd.Timestamp(ds.SIMULATION_START_DATE.replace('_', ' '))
-    return data, lats, lons, times, valid_date
+    return data.values, lats, lons, times, valid_date
 
 
 def regrid_and_save(data, lats, lons, times, valid_date, overwrite, save_dir,
