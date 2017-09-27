@@ -18,9 +18,9 @@ from bokeh.models import (
     ColumnDataSource, WMTSTileSource, Slider)
 from bokeh.models.widgets import Select, Div
 from bokeh.plotting import figure, curdoc
-from matplotlib.colors import BoundaryNorm
+from matplotlib.colors import BoundaryNorm, ListedColormap
 from matplotlib.ticker import MaxNLocator
-from matplotlib.cm import ScalarMappable, get_cmap
+from matplotlib.cm import ScalarMappable, get_cmap, register_cmap
 import numpy as np
 import pandas as pd
 import tables
@@ -32,6 +32,27 @@ from models.binned_color_mapper import BinnedColorMapper
 import config
 # reload since sys.argv changes values
 config = importlib.reload(config)
+
+nws_radar_cmap = ListedColormap(
+    name='nws_radar', colors=(
+        "#646464",
+        "#04e9e7",
+        "#019ff4",
+        "#0300f4",
+        "#02fd02",
+        "#01c501",
+        "#008e00",
+        "#fdf802",
+        "#e5bc00",
+        "#fd9500",
+        "#fd0000",
+        "#d40000",
+        "#bc0000",
+        "#f800fd",
+        "#9854c6",
+        "#fdfdfd",
+        ))
+register_cmap(cmap=nws_radar_cmap)
 
 
 class H5File(object):
@@ -219,7 +240,7 @@ select_day = Select(title='Initialization Day', value=dates[0], options=dates)
 select_model = DisabledSelect(title='Initialization', value='',
                               options=[])
 times = []
-select_fxtime = Slider(title='Forecast Hour', start=0, end=1, value=0,
+select_fxtime = Slider(title='Forecast Time-Step', start=0, end=1, value=0,
                        name='timeslider')
 info_data = ColumnDataSource(data={'current_val': [0], 'mean': [0],
                                    'median': [0],
@@ -319,7 +340,8 @@ def _update_map(update_range=False):
     yn = local_data_source.data['yn'][0]
     dx = xn[1] - xn[0]
     dy = yn[1] - yn[0]
-    vals = np.digitize(masked_regrid.filled(np.inf), levels).astype('uint8')
+    vals = (np.digitize(masked_regrid.filled(np.inf), levels).astype('uint8')
+            - 1)
     rgba_img_source.data.update({'image': [vals],
                                  'x': [xn[0] - dx / 2],
                                  'y': [yn[0] - dy / 2],
