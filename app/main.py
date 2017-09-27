@@ -240,7 +240,7 @@ select_day = Select(title='Initialization Day', value=dates[0], options=dates)
 select_model = DisabledSelect(title='Initialization', value='',
                               options=[])
 times = []
-select_fxtime = Slider(title='Forecast Hour', start=0, end=1, value=0,
+select_fxtime = Slider(title='Forecast Time-Step', start=0, end=1, value=0,
                        name='timeslider')
 info_data = ColumnDataSource(data={'current_val': [0], 'mean': [0],
                                    'median': [0],
