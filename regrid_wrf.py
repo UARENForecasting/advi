@@ -70,30 +70,35 @@ def read_subset(model, base_dir, day, variable):
         sys.exit(1)
     ds = xr.open_dataset(filename, chunks={'south_north': 24, 'west_east': 39})
     # chunks likely unique to UA WRF files
-    lats = ds['XLAT'][:].values
-    lons = ds['XLONG'][:].values
+    lats = ds['XLAT'].values
+    lons = ds['XLONG'].values
     if variable == 'WSPD':
-        u = ds['U10'][:]
-        v = ds['V10'][:]
+        u = ds['U10']
+        v = ds['V10']
         data = np.sqrt(u**2 + v**2)
+    elif variable == 'WDIR':
+        u = ds['U10']
+        v = ds['V10']
+        data = np.arctan2(-u, -v).values
+        data[data < 0] += 2 * np.pi
     elif variable == 'RAIN1H':
-        rainac = ds['RAINNC'][:]
+        rainac = ds['RAINNC']
         diff = rainac[1:] - rainac[:-1]
         data = np.concatenate((np.zeros(diff.shape[1:])[None], diff))
     elif variable == 'DT':
-        t2 = k_to_f(ds['T2'][:])
+        t2 = k_to_f(ds['T2'])
         diff = t2[1:] - t2[:-1]
         data = np.concatenate((np.zeros(diff.shape[1:])[None], diff))
     elif variable == 'MDBZ':
-        dbz = ds['REFL_10CM'][:]
+        dbz = ds['REFL_10CM']
         data = np.amax(dbz, axis=-3)
     else:
-        data = ds[variable][:]
+        data = ds[variable]
     if variable in CONV_DICT:
         data = CONV_DICT[variable](data)
-    times = convert_time_str(ds['Times'][:].values)
+    times = convert_time_str(ds['Times'].values)
     valid_date = pd.Timestamp(ds.SIMULATION_START_DATE.replace('_', ' '))
-    return data.values, lats, lons, times, valid_date
+    return np.asarray(data), lats, lons, times, valid_date
 
 
 def regrid_and_save(data, lats, lons, times, valid_date, overwrite, save_dir,
