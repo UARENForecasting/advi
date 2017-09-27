@@ -319,7 +319,8 @@ def _update_map(update_range=False):
     yn = local_data_source.data['yn'][0]
     dx = xn[1] - xn[0]
     dy = yn[1] - yn[0]
-    vals = np.digitize(masked_regrid.filled(np.inf), levels).astype('uint8')
+    vals = (np.digitize(masked_regrid.filled(np.inf), levels).astype('uint8')
+            - 1)
     rgba_img_source.data.update({'image': [vals],
                                  'x': [xn[0] - dx / 2],
                                  'y': [yn[0] - dy / 2],
