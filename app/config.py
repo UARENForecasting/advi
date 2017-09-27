@@ -27,16 +27,17 @@ MENU_VARS = (('2m Temperature', 'temp'),
              ('1 hr Precip', 'rain'),
              ('Accumulated Precip', 'rainac'),
              ('GHI', 'ghi'),
-             ('DNI', 'dni'))
+             ('DNI', 'dni'),
+             ('Composite Radar', 'radar'))
 
 
 if _var == 'radar':
-    MIN_VAL = -80
+    MIN_VAL = 0
     MAX_VAL = 80
-    VAR = 'REFD_MAX'
-    CMAP = 'plasma'
-    XLABEL = 'Max Radar Refl. (dbZ)'
-    NBINS = 25
+    VAR = 'MDBZ'
+    CMAP = 'nws_radar'
+    XLABEL = 'Composite Reflectivity (dBZ)'
+    NBINS = 17
 elif _var == 'rain':
     MIN_VAL = 0
     MAX_VAL = 2

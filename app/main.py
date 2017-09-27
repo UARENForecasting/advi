@@ -18,9 +18,9 @@ from bokeh.models import (
     ColumnDataSource, WMTSTileSource, Slider)
 from bokeh.models.widgets import Select, Div
 from bokeh.plotting import figure, curdoc
-from matplotlib.colors import BoundaryNorm
+from matplotlib.colors import BoundaryNorm, ListedColormap
 from matplotlib.ticker import MaxNLocator
-from matplotlib.cm import ScalarMappable, get_cmap
+from matplotlib.cm import ScalarMappable, get_cmap, register_cmap
 import numpy as np
 import pandas as pd
 import tables
@@ -32,6 +32,27 @@ from models.binned_color_mapper import BinnedColorMapper
 import config
 # reload since sys.argv changes values
 config = importlib.reload(config)
+
+nws_radar_cmap = ListedColormap(
+    name='nws_radar', colors=(
+        "#646464",
+        "#04e9e7",
+        "#019ff4",
+        "#0300f4",
+        "#02fd02",
+        "#01c501",
+        "#008e00",
+        "#fdf802",
+        "#e5bc00",
+        "#fd9500",
+        "#fd0000",
+        "#d40000",
+        "#bc0000",
+        "#f800fd",
+        "#9854c6",
+        "#fdfdfd",
+        ))
+register_cmap(cmap=nws_radar_cmap)
 
 
 class H5File(object):
