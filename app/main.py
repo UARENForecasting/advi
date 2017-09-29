@@ -215,15 +215,10 @@ hist_fig = figure(plot_width=hheight, plot_height=hheight,
 # make histograms
 bin_width = levels[1] - levels[0]
 bin_centers = levels[:-1] + bin_width / 2
-hist_sources = [ColumnDataSource(data={'x': [bin_centers[i]],
-                                       'top': [3.0e6],
-                                       'color': [color_pal[i]],
-                                       'bottom': [0],
-                                       'width': [bin_width]})
-                for i in range(len(bin_centers))]
-for source in hist_sources:
-    hist_fig.vbar(x='x', top='top', width='width', bottom='bottom',
-                  color='color', fill_alpha=config.ALPHA, source=source)
+histbars = hist_fig.vbar(x=bin_centers, top=[3.0e6] * len(bin_centers),
+                         width=bin_width, bottom=0,
+                         color=color_pal, fill_alpha=config.ALPHA)
+hist_source = histbars.data_source
 
 # line and point on map showing tapped location value
 line_source = ColumnDataSource(data={'x': [-1, -1], 'y': [0, 1]})
@@ -309,8 +304,7 @@ def _update_histogram():
         new_subset.clip(max=config.MAX_VAL), bins=levels,
         range=(levels.min(), levels.max()))
     line_source.data.update({'y': [0, counts.max()]})
-    for i, source in enumerate(hist_sources):
-        source.data.update({'top': [counts[i]]})
+    hist_source.data.update({'top': counts})
     logging.debug('Done updating histogram')
 
     info_data.data.update({'mean': [float(new_subset.mean())]})
