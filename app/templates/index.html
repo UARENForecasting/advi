@@ -44,5 +44,10 @@
     {{ plot_div | indent(8) }}
   </div>
 </div>
+{% if custom_model_code %}
+<script type="text/javascript">
+  {{ custom_model_code | indent(8) }}
+</script>
+{% endif %}
 {{ plot_script | indent(8) }}
 {% endblock %}

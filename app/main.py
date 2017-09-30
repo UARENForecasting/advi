@@ -7,6 +7,7 @@ import importlib
 import logging
 from pathlib import Path
 import os
+import sys
 import warnings
 
 
@@ -552,9 +553,15 @@ lay = column(row([select_day, select_model, select_fxtime]),
 doc = curdoc()
 doc.add_root(lay)
 doc.add_next_tick_callback(partial(_update_models, True))
-doc.add_timeout_callback(_update_data, 5000)
+doc.add_timeout_callback(_update_data, 1000)
 doc.title = config.TITLE
 doc.template_variables.update({
     'menu_vars': config.MENU_VARS,
     'prefix': config.PREFIX,
     'ga_tracking_id': config.GA_TRACKING_ID})
+try:
+    custom_model_code = sys.argv[2]
+except IndexError:
+    pass
+else:
+    doc.template_variables['custom_model_code'] = custom_model_code
