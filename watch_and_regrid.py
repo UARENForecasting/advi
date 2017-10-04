@@ -21,9 +21,15 @@ PREFIX = 'WRF'
 def regrid_file(model, base_dir, day, variables, save_dir):
     errors = 0
     for var in variables:
-        data, lats, lons, times, valid_date = read_subset(model,
-                                                          base_dir,
-                                                          day, var)
+        try:
+            data, lats, lons, times, valid_date = read_subset(model,
+                                                              base_dir,
+                                                              day, var)
+        except KeyError:
+            logging.error('Failed to find variable %s in %s', var, model)
+            errors += 1
+            continue
+
         try:
             regrid_and_save(data, lats, lons, times, valid_date,
                             False, save_dir, var, model)
@@ -98,7 +104,7 @@ def main():
                            default='/a4/uaren/')
     argparser.add_argument('--max-days', type=int, default=3,
                            help='Maximum number of days to preserve data')
-    argparser.add_argument('--polling-interval', default=30,
+    argparser.add_argument('--polling-interval', default=30, type=int,
                            help='Period in seconds to poll base-dir')
     argparser.add_argument('vars', help='Variable to get from WRF file',
                            nargs='+')

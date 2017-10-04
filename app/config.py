@@ -20,6 +20,8 @@ PREFIX = os.getenv('ADVI_PREFIX', '')
 POSSIBLE_MODELS = ('WRFGFS_00Z', 'WRFGFS_06Z', 'WRFGFS_12Z',
                    'WRFNAM_00Z', 'WRFNAM_06Z', 'WRFNAM_12Z',
                    'WRFRUC_12Z')
+CUSTOM_BOKEH_MODELS = (('app.models.binned_color_mapper', 'BinnedColorMapper'),
+                       ('app.models.disabled_select', 'DisabledSelect'))
 
 MENU_VARS = (('2m Temperature', 'temp'),
              ('1 hr Temperature Change', 'dt'),
