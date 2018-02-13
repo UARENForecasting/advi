@@ -53,7 +53,49 @@ nws_radar_cmap = ListedColormap(
         "#9854c6",
         "#fdfdfd",
         ))
+precip_1h_cmap = ListedColormap(
+    name='precip_1h', colors=(
+        '#ffffff',
+        '#ebf6ff',
+        '#d6e2ff',
+        '#8eb2ff',
+        '#7f96ff',
+        '#7285f8',
+        '#6370f8',
+        '#009e1e',
+        '#b3d16e',
+        '#fff913',
+        '#ffa309',
+        '#e50000',
+        '#bd0000'
+    ))
+precip_accum_cmap = ListedColormap(
+    name='precip_accum', colors=(
+        '#ffffff',
+        '#ebf6ff',
+        '#d6e2ff',
+        '#8eb2ff',
+        '#7f96ff',
+        '#7285f8',
+        '#6370f8',
+        '#009e1e',
+        '#b3d16e',
+        '#fff913',
+        '#ffa309',
+        '#e50000',
+        '#bd0000',
+        '#810000',
+        '#000000',
+        '#767676',
+        '#aaaaaa',
+        '#cdcdcd',
+        '#eeeeee',
+        '#e1b4fa',
+        '#950fdf'
+    ))
 register_cmap(cmap=nws_radar_cmap)
+register_cmap(cmap=precip_1h_cmap)
+register_cmap(cmap=precip_accum_cmap)
 
 
 class H5File(object):
@@ -154,27 +196,47 @@ def get_models(date):
 
 
 # setup the coloring
-levels = MaxNLocator(nbins=config.NBINS).tick_values(
-    config.MIN_VAL, config.MAX_VAL)
+if config.LEVELS:
+    levels = np.array(config.LEVELS)
+    ticks = list(range(len(levels)))
+    tick_labels = {ticks[i]: '{:0.2f}'.format(levels[i])
+                   for i in range(len(ticks))}
+    cbkwargs = dict(major_label_overrides=tick_labels,
+                    label_standoff=9)
+    cmkwargs = dict(low=0, high=len(levels) - 1)
+    bin_width = ticks[1] - ticks[0]
+    bin_centers = np.array(ticks[:-1]) + bin_width / 2
+    hist_xrange_kwargs = dict(start=min(ticks), end=max(ticks))
+else:
+    levels = MaxNLocator(nbins=config.NBINS).tick_values(
+        config.MIN_VAL, config.MAX_VAL)
+    ticks = levels[::3]
+    cbkwargs = {}
+    cmkwargs = dict(low=config.MIN_VAL, high=config.MAX_VAL)
+    bin_width = levels[1] - levels[0]
+    bin_centers = levels[:-1] + bin_width / 2
+    hist_xrange_kwargs = dict(start=config.MIN_VAL, end=config.MAX_VAL)
+
 cmap = get_cmap(config.CMAP)
 norm = BoundaryNorm(levels, ncolors=cmap.N, clip=True)
 sm = ScalarMappable(norm=norm, cmap=cmap)
 color_pal = [RGB(*val).to_hex() for val in
              sm.to_rgba(levels, bytes=True, norm=True)[:-1]]
-color_mapper = LinearColorMapper(color_pal, low=sm.get_clim()[0],
-                                 high=sm.get_clim()[1])
+
 bin_pal = color_pal.copy()
 bin_pal.append('#ffffff')
 bin_mapper = BinnedColorMapper(bin_pal, alpha=config.ALPHA)
-ticker = FixedTicker(ticks=levels[::3])
+color_mapper = LinearColorMapper(color_pal, **cmkwargs)
+ticker = FixedTicker(ticks=ticks)
 cb = ColorBar(color_mapper=color_mapper, location=(0, 0),
-              scale_alpha=config.ALPHA, ticker=ticker)
+              scale_alpha=config.ALPHA, ticker=ticker,
+              **cbkwargs)
 
 # make the bokeh figures without the data yet
 width = 768
 height = int(width / 1.6)
 
-tools = 'pan, box_zoom, reset, save'
+tools = 'pan, box_zoom, reset'
 map_fig = figure(plot_width=width, plot_height=height,
                  y_axis_type=None, x_axis_type=None,
                  toolbar_location='left', tools=tools + ', wheel_zoom',
@@ -210,12 +272,10 @@ hist_fig = figure(plot_width=hheight, plot_height=hheight,
                   x_axis_label=config.XLABEL,
                   y_axis_label='Counts', tools=tools + ', ywheel_zoom',
                   active_scroll='ywheel_zoom',
-                  x_range=Range1d(start=config.MIN_VAL, end=config.MAX_VAL),
+                  x_range=Range1d(**hist_xrange_kwargs),
                   title='Histogram of map pixels')
 
 # make histograms
-bin_width = levels[1] - levels[0]
-bin_centers = levels[:-1] + bin_width / 2
 histbars = hist_fig.vbar(x=bin_centers, top=[3.0e6] * len(bin_centers),
                          width=bin_width, bottom=0,
                          color=color_pal, fill_alpha=config.ALPHA)
@@ -223,8 +283,11 @@ hist_source = histbars.data_source
 
 # line and point on map showing tapped location value
 line_source = ColumnDataSource(data={'x': [-1, -1], 'y': [0, 1]})
-hist_fig.line(x='x', y='y', color=config.RED, source=line_source,
-              alpha=config.ALPHA)
+if config.LEVELS:
+    hist_fig.xaxis[0].major_label_overrides = tick_labels
+else:
+    hist_fig.line(x='x', y='y', color=config.RED, source=line_source,
+                  alpha=config.ALPHA)
 hover_pt = ColumnDataSource(data={'x': [0], 'y': [0], 'x_idx': [0],
                                   'y_idx': [0]})
 map_fig.x(x='x', y='y', size=10, color=config.RED, alpha=config.ALPHA,
