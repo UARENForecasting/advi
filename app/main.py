@@ -367,11 +367,11 @@ def _update_histogram():
     counts, _ = np.histogram(
         new_subset.clip(max=config.MAX_VAL), bins=levels,
         range=(levels.min(), levels.max()))
-    line_source.data.update({'y': [0, counts.max()]})
+    line_source.data.update({'y': np.array([0, counts.max()])})
     hist_source.data.update({'top': counts})
     logging.debug('Done updating histogram')
 
-    info_data.data.update({'mean': [float(new_subset.mean())]})
+    info_data.data.update({'mean': np.array([float(new_subset.mean())])})
     try:
         doc.add_next_tick_callback(_update_div_text)
     except ValueError:
@@ -401,10 +401,10 @@ def _update_map(update_range=False):
     vals = (np.digitize(masked_regrid.filled(np.inf), levels).astype('uint8')
             - 1)
     rgba_img_source.data.update({'image': [vals],
-                                 'x': [xn[0] - dx / 2],
-                                 'y': [yn[0] - dy / 2],
-                                 'dw': [xn[-1] - xn[0] + dx],
-                                 'dh': [yn[-1] - yn[0] + dy]})
+                                 'x': np.array([xn[0] - dx / 2]),
+                                 'y': np.array([yn[0] - dy / 2]),
+                                 'dw': np.array([xn[-1] - xn[0] + dx]),
+                                 'dh': np.array([yn[-1] - yn[0] + dy])})
     if update_range:
         map_fig.x_range.start = xn[0]
         map_fig.x_range.end = xn[-1]
@@ -528,8 +528,10 @@ def _move_click_marker(event):
     x_idx = np.abs(xn - x).argmin()
     y_idx = np.abs(yn - y).argmin()
 
-    hover_pt.data.update({'x': [xn[x_idx]], 'y': [yn[y_idx]],
-                          'x_idx': [x_idx], 'y_idx': [y_idx]})
+    hover_pt.data.update({'x': np.array([xn[x_idx]]),
+                          'y': np.array([yn[y_idx]]),
+                          'x_idx': np.array([x_idx]),
+                          'y_idx': np.array([y_idx])})
     curdoc().add_next_tick_callback(_move_hist_line)
     curdoc().add_next_tick_callback(_update_tseries)
 
@@ -541,8 +543,8 @@ def _update_tseries():
 
     line_data = load_tseries(x_idx, y_idx)
     if len(line_data.dropna().values) < 1:
-        tseries_source.data.update({'values': [config.MAX_VAL],
-                                    'time': [0]})
+        tseries_source.data.update({'values': np.array([config.MAX_VAL]),
+                                    'time': np.array([0])})
     else:
         tseries_source.data.update({'values': line_data.values,
                                     'time': time_setter(times)})
@@ -558,8 +560,8 @@ def _update_tseries_pt():
     if val == np.nan:
         val = 0
     curtime = local_data_source.data['valid_date'][0]
-    curpt_source.data.update({'value': [val],
-                              'time': [time_setter(curtime)]})
+    curpt_source.data.update({'value': np.array([val]),
+                              'time': np.array([time_setter(curtime)])})
 
 
 @gen.coroutine
@@ -570,7 +572,7 @@ def _move_hist_line():
     with warnings.catch_warnings():
         warnings.simplefilter('ignore')
         val = float(masked_regrid[y_idx, x_idx])
-    info_data.data.update({'current_val': [val]})
+    info_data.data.update({'current_val': np.array([val])})
     try:
         doc.add_next_tick_callback(_update_div_text)
     except ValueError:
@@ -580,7 +582,7 @@ def _move_hist_line():
         val = config.MIN_VAL * 1.05
     elif val > config.MAX_VAL:
         val = config.MAX_VAL * .99
-    line_source.data.update({'x': [val, val]})
+    line_source.data.update({'x': np.array([val, val])})
 
 
 @gen.coroutine
