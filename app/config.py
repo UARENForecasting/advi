@@ -32,7 +32,7 @@ MENU_VARS = (('2m Temperature', 'temp'),
              ('DNI', 'dni'),
              ('Composite Radar', 'radar'))
 
-
+LEVELS = []
 if _var == 'radar':
     MIN_VAL = 0
     MAX_VAL = 80
@@ -44,23 +44,28 @@ elif _var == 'rain':
     MIN_VAL = 0
     MAX_VAL = 2
     VAR = 'RAIN1H'
-    CMAP = 'magma'
+    CMAP = 'precip_1h'
     XLABEL = 'One-hour Precip (in)'
-    NBINS = 21
+    LEVELS = [
+        0, 0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.75, 1.0, 1.5, 2.0, 2.5, 3
+    ]
 elif _var == 'rainac':
     MIN_VAL = 0
-    MAX_VAL = 2
+    MAX_VAL = 10
     VAR = 'RAINNC'
-    CMAP = 'magma'
+    CMAP = 'precip_accum'
     XLABEL = 'Precip Accumulation (in)'
-    NBINS = 21
+    LEVELS = [
+        0, 0.01, 0.05, 0.1, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2, 3, 4, 5,
+        6, 7, 8, 9, 10, 11, 12
+    ]
 elif _var == 'dt':
     MIN_VAL = -20
     MAX_VAL = 20
     VAR = 'DT'
     CMAP = 'coolwarm'
     XLABEL = 'One-Hour Temperature Change (°F)'
-    NBINS = 40
+    NBINS = 41
 elif _var == 'temp':
     MIN_VAL = 0
     MAX_VAL = 120

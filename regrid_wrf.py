@@ -181,7 +181,7 @@ def main():
     argparser.add_argument('--var', help='Variable to get from WRF file',
                            action='append')
     argparser.add_argument('--base-dir', help='Base directory with WRF files',
-                           default='/a4/uaren/')
+                           default='/d1/uaren/')
     argparser.add_argument('-d', '--day', help='Day to get data from')
     argparser.add_argument(
         'model', help='Model to get data from i.e. WRFGFS_12Z')
