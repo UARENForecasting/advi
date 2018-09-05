@@ -241,8 +241,7 @@ map_fig = figure(plot_width=width, plot_height=height,
                  y_axis_type=None, x_axis_type=None,
                  toolbar_location='left', tools=tools + ', wheel_zoom',
                  active_scroll='wheel_zoom',
-                 title='', name='bkfig',
-                 responsive=True)
+                 title='', name='bkfig')
 
 
 rgba_img_source = ColumnDataSource(data={'image': [], 'x': [], 'y': [],
@@ -289,7 +288,7 @@ else:
     hist_fig.line(x='x', y='y', color=config.RED, source=line_source,
                   alpha=config.ALPHA)
 hover_pt = ColumnDataSource(data={'x': [0], 'y': [0], 'x_idx': [0],
-                                  'y_idx': [0]})
+                                  'y_idx': [0], 'lat': [0], 'lon': [0]})
 map_fig.x(x='x', y='y', size=10, color=config.RED, alpha=config.ALPHA,
           source=hover_pt, level='overlay')
 
@@ -306,7 +305,7 @@ info_data = ColumnDataSource(data={'current_val': [0], 'mean': [0],
                                    'bin_width': [bin_width]})
 info_text = """
 <div class="well">
-<b>Selected Value:</b> {current_val:0.1f} <b>Area Mean:</b> {mean:0.1f} <b>Bin Width</b> {bin_width:0.1f}
+<b>Selected Value:</b> {current_val:0.1f} <b>Area Mean:</b> {mean:0.1f} <b>Latitude:</b> {lat:0.2f} <b>Longitude:</b> {lon:0.2f} <b>Bin Width:</b> {bin_width:0.1f}
 </div>
 """  # NOQA
 info_div = Div(width=width)
@@ -527,12 +526,16 @@ def _move_click_marker(event):
 
     x_idx = np.abs(xn - x).argmin()
     y_idx = np.abs(yn - y).argmin()
+    lat, lon = webmerc_to_latlon(xn[x_idx], yn[y_idx])
 
     hover_pt.data.update({'x': np.array([xn[x_idx]]),
                           'y': np.array([yn[y_idx]]),
                           'x_idx': np.array([x_idx]),
-                          'y_idx': np.array([y_idx])})
+                          'y_idx': np.array([y_idx]),
+                          'lat': np.array([lat]),
+                          'lon': np.array([lon])})
     curdoc().add_next_tick_callback(_move_hist_line)
+    curdoc().add_next_tick_callback(_update_div_text)
     curdoc().add_next_tick_callback(_update_tseries)
 
 
@@ -585,14 +588,24 @@ def _move_hist_line():
     line_source.data.update({'x': np.array([val, val])})
 
 
+def webmerc_to_latlon(x, y):
+    R = 6378137.0
+    lon = np.degrees(x / R)
+    lat = np.degrees(2 * np.arctan(np.exp(y / R)) - np.pi / 2)
+    return lat, lon
+
+
 @gen.coroutine
 def _update_div_text():
     current_val = info_data.data['current_val'][0]
     mean = info_data.data['mean'][0]
     bin_width = info_data.data['bin_width'][0]
+    lat = hover_pt.data['lat'][0]
+    lon = hover_pt.data['lon'][0]
     info_div.text = info_text.format(current_val=current_val,
                                      mean=mean,
-                                     bin_width=bin_width)
+                                     bin_width=bin_width,
+                                     lat=lat, lon=lon)
 
 
 # python callbacks
