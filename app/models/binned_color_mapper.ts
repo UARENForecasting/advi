@@ -2,16 +2,8 @@ import * as p from "core/properties"
 import {Arrayable} from "core/types"
 import {ColorMapper} from "models/mappers/color_mapper"
 
-function _component2hex(v: number | string): string {
-    const h = Number(v).toString(16)
-    return h.length == 1 ? `0${h}` : h
-}
-
 export namespace BinnedColorMapper {
-    export interface Attrs extends ColorMapper.Attrs {
-        alpha: number
-    }
-
+    export interface Attrs extends ColorMapper.Attrs {}
     export interface Props extends ColorMapper.Props {}
 }
 
