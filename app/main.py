@@ -622,8 +622,8 @@ select_fxtime.on_change('value', update_data)
 
 # layout the document
 lay = column(row([select_day, select_model, select_fxtime]),
-             gridplot([map_fig],
-                      [tseries_fig, hist_fig],
+             gridplot([[map_fig],
+                       [tseries_fig, hist_fig]],
                       toolbar_location='left',
                       ),
              info_div
