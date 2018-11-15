@@ -220,17 +220,16 @@ else:
 cmap = get_cmap(config.CMAP)
 norm = BoundaryNorm(levels, ncolors=cmap.N, clip=True)
 sm = ScalarMappable(norm=norm, cmap=cmap)
-color_pal = [RGB(*val).to_hex() for val in
+color_pal = [RGB(val[0], val[1], val[2], config.ALPHA) for val in
              sm.to_rgba(levels, bytes=True, norm=True)[:-1]]
 
 bin_pal = color_pal.copy()
-bin_pal.append('#ffffff')
-bin_mapper = BinnedColorMapper(bin_pal, alpha=config.ALPHA)
+bin_pal.append(RGB(255, 255, 255, config.ALPHA))
+bin_mapper = BinnedColorMapper(bin_pal)
 color_mapper = LinearColorMapper(color_pal, **cmkwargs)
 ticker = FixedTicker(ticks=ticks)
 cb = ColorBar(color_mapper=color_mapper, location=(0, 0),
-              scale_alpha=config.ALPHA, ticker=ticker,
-              **cbkwargs)
+              ticker=ticker, **cbkwargs)
 
 # make the bokeh figures without the data yet
 width = 768
@@ -277,7 +276,7 @@ hist_fig = figure(plot_width=hheight, plot_height=hheight,
 # make histograms
 histbars = hist_fig.vbar(x=bin_centers, top=[3.0e6] * len(bin_centers),
                          width=bin_width, bottom=0,
-                         color=color_pal, fill_alpha=config.ALPHA)
+                         color=color_pal)
 hist_source = histbars.data_source
 
 # line and point on map showing tapped location value
