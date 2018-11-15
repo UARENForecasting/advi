@@ -1,13 +1,13 @@
 from bokeh.models.callbacks import Callback
 from bokeh.core.properties import (List, Either, String, Tuple, Bool,
-                                   Instance, Override)
+                                   Instance)
 from bokeh.models.widgets.inputs import InputWidget
 
 
 class DisabledSelect(InputWidget):
     ''' Single-select widget.
     '''
-    __js_implementation__ = 'disabled_select.coffee'
+    __js_implementation__ = 'disabled_select.ts'
 
     options = List(Either(String, Tuple(String, Bool)), help="""
     Available selection options. Options may be provided either as a list of
