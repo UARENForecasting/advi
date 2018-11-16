@@ -4,7 +4,7 @@
 {% block postamble %}
 <style>
   .top-marg {
-     margin-top: 32px;
+     margin-top: 2em;
   }
 </style>
 <script type=text/javascript>
@@ -40,15 +40,30 @@
     </div>
   </div>
   <div class="row">
-    <div class="col-sm-12 col-xs-10">
+    <div class="col-sm-3 col-xs-6">
+      {{ embed(roots.select_day) | indent(10) }}
+    </div>
+    <div class="col-sm-3 col-xs-6">
+      {{ embed(roots.select_model) | indent(10) }}
+    </div>
+    <div class="col-sm-1 col-xs-0"></div>
+    <div class="col-sm-3 col-xs-8">
+      {{ embed(roots.timeslider) | indent(10) }}
+    </div>
+    <div class="col-sm-2 col-xs-4">
+      {{ embed(roots.play_buttons) | indent(10) }}
+    </div>
+  </div>
+  <div class="row">
+    <div class="col-sm-12 col-xs-10 top-marg">
       {{ embed(roots.map_fig) | indent(10) }}
     </div>
   </div>
   <div class="row">
-    <div class="col-sm-6 col-xs-10">
+    <div class="col-sm-6 col-xs-10 top-marg">
       {{ embed(roots.tseries) | indent(10)}}
     </div>
-    <div class="col-sm-6 col-xs-10">
+    <div class="col-sm-6 col-xs-10 top-marg">
       {{ embed(roots.hist_fig) | indent(10) }}
     </div>
   </div>

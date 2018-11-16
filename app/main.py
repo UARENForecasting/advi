@@ -13,10 +13,10 @@ import warnings
 
 from bokeh import events
 from bokeh.colors import RGB
-from bokeh.layouts import gridplot, column, row
 from bokeh.models import (
     Range1d, LinearColorMapper, ColorBar, FixedTicker,
     ColumnDataSource, WMTSTileSource, Slider)
+from bokeh.layouts import widgetbox
 from bokeh.models.widgets import Select, Div, RadioButtonGroup
 from bokeh.server.callbacks import PeriodicCallback
 from bokeh.plotting import figure, curdoc
@@ -236,12 +236,13 @@ cb = ColorBar(color_mapper=color_mapper, location=(0, 0),
 width = 768
 height = int(width / 1.6)
 
-tools = 'pan, box_zoom, reset'
+tools = 'pan, box_zoom, reset, save'
 map_fig = figure(plot_width=width, plot_height=height,
                  y_axis_type=None, x_axis_type=None,
                  toolbar_location='left', tools=tools + ', wheel_zoom',
                  active_scroll='wheel_zoom',
-                 title='', name='bkfig')
+                 toolbar_sticky=False, sizing_mode='scale_width',
+                 title='', name='map_fig')
 
 
 rgba_img_source = ColumnDataSource(data={'image': [], 'x': [], 'y': [],
@@ -270,9 +271,10 @@ hist_fig = figure(plot_width=hheight, plot_height=hheight,
                   toolbar_location='right',
                   x_axis_label=config.XLABEL,
                   y_axis_label='Counts', tools=tools + ', ywheel_zoom',
-                  active_scroll='ywheel_zoom',
+                  active_scroll='ywheel_zoom', sizing_mode='scale_width',
                   x_range=Range1d(**hist_xrange_kwargs),
-                  title='Histogram of map pixels')
+                  title='Histogram of map pixels',
+                  name='hist_fig')
 
 # make histograms
 histbars = hist_fig.vbar(x=bin_centers, top=[3.0e6] * len(bin_centers),
@@ -294,14 +296,17 @@ map_fig.x(x='x', y='y', size=10, color=config.RED, alpha=config.ALPHA,
 
 file_dict = find_fx_times()
 dates = list(file_dict.keys())[::-1]
-select_day = Select(title='Initialization Day', value=dates[0], options=dates)
+select_day = Select(title='Initialization Day', value=dates[0], options=dates,
+                    sizing_mode='scale_width', name='select_day')
 select_model = DisabledSelect(title='Initialization', value='',
-                              options=[])
+                              options=[], sizing_mode='scale_width',
+                              name='select_model')
 times = []
 select_fxtime = Slider(title='Forecast Time-Step', start=0, end=1, value=0,
-                       name='timeslider')
+                       name='timeslider', sizing_mode='scale_width')
 play_buttons = RadioButtonGroup(labels=['\u25B6', '\u25A0'],
-                                active=1)
+                                active=1, name='play_buttons',
+                                sizing_mode='fixed')
 info_data = ColumnDataSource(data={'current_val': [0], 'mean': [0],
                                    'median': [0],
                                    'bin_width': [bin_width]})
@@ -310,7 +315,7 @@ info_text = """
 <b>Selected Value:</b> {current_val:0.1f} <b>Area Mean:</b> {mean:0.1f} <b>Latitude:</b> {lat:0.2f} <b>Longitude:</b> {lon:0.2f} <b>Bin Width:</b> {bin_width:0.1f}
 </div>
 """  # NOQA
-info_div = Div(width=width)
+info_div = Div(sizing_mode='scale_width', name='info_div')
 
 # Setup the updates for all the data
 local_data_source = ColumnDataSource(data={'masked_regrid': [0], 'xn': [0],
@@ -328,9 +333,11 @@ tseries_fig = figure(
     x_axis_type='datetime',
     tools=tools + ', wheel_zoom',
     active_scroll='wheel_zoom',
-    toolbar_location='right',
+    toolbar_location='left',
     title='Time-series at selected location',
-    y_axis_label=config.XLABEL)
+    x_axis_label='Datetime',
+    y_axis_label=config.XLABEL,
+    name='tseries', sizing_mode='scale_width')
 tseries_fig.line(x='time', y='values', source=tseries_source,
                  color=config.BLUE)
 tseries_fig.diamond(x='time', y='value', color=config.RED, source=curpt_source,
@@ -391,9 +398,9 @@ def _update_map(update_range=False):
     logging.debug('Updating map...')
     valid_date = local_data_source.data['valid_date'][0]
     mfmt = '%Y-%m-%d %H:%M MST'
-    title = (f'UA WRF {config.XLABEL} valid at '
-             f'{valid_date.tz_convert("MST").strftime(mfmt)}')
-    map_fig.title.text = title
+    map_fig.title.text = (
+        f'UA HAS WRF {config.XLABEL} valid at '
+        f'{valid_date.tz_convert("MST").strftime(mfmt)}')
     masked_regrid = local_data_source.data['masked_regrid'][0]
     xn = local_data_source.data['xn'][0]
     yn = local_data_source.data['yn'][0]
@@ -450,19 +457,19 @@ def _update_data(update_range=False):
                                    'xn': [xn], 'yn': [yn],
                                    'valid_date': [valid_date]})
     try:
-        curdoc().add_next_tick_callback(partial(_update_map, update_range))
+        doc.add_next_tick_callback(partial(_update_map, update_range))
     except ValueError:
         pass
     try:
-        curdoc().add_next_tick_callback(_update_histogram)
+        doc.add_next_tick_callback(_update_histogram)
     except ValueError:
         pass
     try:
-        curdoc().add_next_tick_callback(_move_hist_line)
+        doc.add_next_tick_callback(_move_hist_line)
     except ValueError:
         pass
     try:
-        curdoc().add_next_tick_callback(_update_tseries_pt)
+        doc.add_next_tick_callback(_update_tseries_pt)
     except ValueError:
         pass
 
@@ -490,7 +497,7 @@ def _update_models(update_range=False):
         if not disabled and not thelabel:
             thelabel = m
     select_model.value = thelabel
-    curdoc().add_next_tick_callback(partial(_update_file, update_range))
+    doc.add_next_tick_callback(partial(_update_file, update_range))
 
 
 def update_file(attr, old, new):
@@ -522,7 +529,7 @@ def _update_file(update_range=False):
 def move_click_marker(event):
     try:
         doc.add_timeout_callback(partial(_move_click_marker, event), 50)
-    except ValueError:
+    except ValueError as e:
         pass
 
 
@@ -554,9 +561,9 @@ def _move_click_marker(event):
                           'y_idx': np.array([y_idx]),
                           'lat': np.array([lat]),
                           'lon': np.array([lon])})
-    curdoc().add_next_tick_callback(_move_hist_line)
-    curdoc().add_next_tick_callback(_update_div_text)
-    curdoc().add_next_tick_callback(_update_tseries)
+    doc.add_next_tick_callback(_move_hist_line)
+    doc.add_next_tick_callback(_update_div_text)
+    doc.add_next_tick_callback(_update_tseries)
 
 
 @gen.coroutine
@@ -628,6 +635,7 @@ def _update_div_text():
                                      lat=lat, lon=lon)
 
 
+doc = curdoc()
 # python callbacks
 map_fig.x_range.on_change('start', update_histogram)
 map_fig.x_range.on_change('end', update_histogram)
@@ -641,17 +649,9 @@ select_model.on_change('value', update_file)
 select_fxtime.on_change('value', update_data)
 play_buttons.on_change('active', animate_times)
 
-# layout the document
-lay = column(row([select_day, select_model,
-                  column([select_fxtime, play_buttons])]),
-             gridplot([[map_fig],
-                       [tseries_fig, hist_fig]],
-                      toolbar_location='left',
-                      ),
-             info_div
-             )
-doc = curdoc()
-doc.add_root(lay)
+for thing in (select_day, select_model, select_fxtime, play_buttons,
+              map_fig, hist_fig, tseries_fig, info_div):
+    doc.add_root(thing)
 doc.add_next_tick_callback(partial(_update_models, True))
 doc.add_timeout_callback(_update_data, 1000)
 doc.title = config.TITLE
