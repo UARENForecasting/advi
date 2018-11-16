@@ -1,8 +1,11 @@
 <!DOCTYPE html>
 <html lang="en" class="sticky-footer">
+{% block head %}
   <head>
-    {% block head %}
+    {% block inner_head %}
     <meta charset="utf-8">
+    <title>UA HAS ADVI</title>
+    {% block preamble %}
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     {% if prefix %}
@@ -10,34 +13,56 @@
     {% else %}
     <link rel="SHORTCUT ICON" href="/favicon.ico"/>
     {% endif %}
-    <title>UA HAS ADVI</title>
     <!-- Latest icon font stylesheet -->
     <link rel="stylesheet" href="https://cdn.uadigital.arizona.edu/lib/ua-brand-icons/latest/ua-brand-icons.css">
     <!-- Compiled and minified UA Bootstrap CSS, icon font not included -->
-    <link rel="stylesheet" href="https://cdn.uadigital.arizona.edu/lib/ua-bootstrap/v1.0.0-beta.4/ua-bootstrap.min.css">
-    {% endblock %}
+    <link rel="stylesheet" href="https://cdn.uadigital.arizona.edu/lib/ua-bootstrap/v1.0.0-beta.17/ua-bootstrap.min.css">
     <!-- jQuery -->
     <script src="https://code.jquery.com/jquery-2.2.4.min.js"></script>
-    {% include "analytics.html" %}
-    {% block extra_head %}
+    {% endblock %}
+    {% block resources %}
+        {% block css_resources %}
+        {{ bokeh_css | indent(8) if bokeh_css }}
+        {% endblock %}
+        {% block js_resources %}
+        {{ bokeh_js | indent(8) if bokeh_js }}
+        {% endblock %}
+    {% endblock %}
+    {% block postamble %}{% endblock %}
     {% endblock %}
   </head>
+{% endblock %}
+{% block body %}
   <body>
-    {% include "header.html" %}
-    {% block content %}{% endblock %}
+    {% block header %}
+    <header id="region_header_ua" class="l-arizona-header bg-red">
+      <section class="container l-container">
+        <div class="row">
+          <a href="http://www.arizona.edu" title="The University of Arizona homepage" class="arizona-logo">
+            <img alt="The University of Arizona Wordmark Line Logo White" src="https://brand.arizona.edu/sites/default/files/digital-resources/ua_wordmark_line_logo_white_rgb.svg" class="arizona-line-logo">
+          </a>
+        </div>
+      </section>
+    </header>
+    {% endblock %}
+    {% include "pageheader.html" %}
+    {% block contents %}{% endblock %}
     {% block footer %}
     <!-- Latest compiled and minified JavaScript -->
-    <script src="https://cdn.uadigital.arizona.edu/lib/ua-bootstrap/v1.0.0-beta.4/ua-bootstrap.min.js"></script>
+    <script src="https://cdn.uadigital.arizona.edu/lib/ua-bootstrap/v1.0.0-beta.17/ua-bootstrap.min.js"></script>
     <footer role="contentinfo" class="bs-footer page-row">
       <div class="container text-center">
-        <hr>
-        <ul class="footer-links muted list-inline list-unstyled">
-          <li>Built with <li><a href="http://bokeh.pydata.org">Bokeh</a></li>
-          <li>.</li>
-          <li><a href="https://github.com/uarenforecasting/advi">GitHub</a></li>
-        </ul>
+        <div class="row">
+          <hr>
+          <ul class="footer-links muted list-inline list-unstyled">
+            <li>Built with <li><a href="http://bokeh.pydata.org">Bokeh</a></li>
+            <li>.</li>
+            <li><a href="https://github.com/uarenforecasting/advi">GitHub</a></li>
+          </ul>
+        </div>
       </div>
     </footer>
     {% endblock %}
   </body>
+{% endblock %}
 </html>
