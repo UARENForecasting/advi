@@ -306,7 +306,7 @@ select_model = DisabledSelect(title='Initialization', value='',
 times = []
 select_fxtime = Slider(title='Forecast Time-Step', start=0, end=1, value=0,
                        name='timeslider', sizing_mode='scale_width')
-play_buttons = RadioButtonGroup(labels=['\u25B6', '\u25A0'],
+play_buttons = RadioButtonGroup(labels=['\u25B6', '\u25FC', '\u27F3'],
                                 active=1, name='play_buttons',
                                 sizing_mode='fixed')
 info_data = ColumnDataSource(data={'current_val': [0], 'mean': [0],
@@ -427,6 +427,8 @@ def _update_map(update_range=False):
 def animate_times(attr, old, new):
     if new == 0:
         doc.add_periodic_callback(_alter_time_value, config.ANIMATE_TIME)
+    elif new == 2:
+        doc.add_next_tick_callback(_reset_time_value)
     else:
         for c in doc.session_callbacks:
             if isinstance(c, PeriodicCallback):
@@ -437,9 +439,15 @@ def animate_times(attr, old, new):
 def _alter_time_value():
     time_val = select_fxtime.value
     if time_val == select_fxtime.end:
-        select_fxtime.value = 0
+        play_buttons.active = 1
     else:
         select_fxtime.value = time_val + 1
+
+
+@gen.coroutine
+def _reset_time_value():
+    select_fxtime.value = 0
+    play_buttons.active = 1
 
 
 def update_data(attr, old, new):
