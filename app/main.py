@@ -17,7 +17,8 @@ from bokeh.layouts import gridplot, column, row
 from bokeh.models import (
     Range1d, LinearColorMapper, ColorBar, FixedTicker,
     ColumnDataSource, WMTSTileSource, Slider)
-from bokeh.models.widgets import Select, Div
+from bokeh.models.widgets import Select, Div, RadioButtonGroup
+from bokeh.server.callbacks import PeriodicCallback
 from bokeh.plotting import figure, curdoc
 from matplotlib.colors import BoundaryNorm, ListedColormap
 from matplotlib.ticker import MaxNLocator
@@ -299,6 +300,8 @@ select_model = DisabledSelect(title='Initialization', value='',
 times = []
 select_fxtime = Slider(title='Forecast Time-Step', start=0, end=1, value=0,
                        name='timeslider')
+play_buttons = RadioButtonGroup(labels=['\u25B6', '\u25A0'],
+                                active=1)
 info_data = ColumnDataSource(data={'current_val': [0], 'mean': [0],
                                    'median': [0],
                                    'bin_width': [bin_width]})
@@ -409,6 +412,24 @@ def _update_map(update_range=False):
         map_fig.y_range.start = yn[0]
         map_fig.y_range.end = yn[-1]
     logging.debug('Done updating map')
+
+
+def animate_times(attr, old, new):
+    if new == 0:
+        doc.add_periodic_callback(_alter_time_value, config.ANIMATE_TIME)
+    else:
+        for c in doc.session_callbacks:
+            if isinstance(c, PeriodicCallback):
+                doc.remove_periodic_callback(c)
+
+
+@gen.coroutine
+def _alter_time_value():
+    time_val = select_fxtime.value
+    if time_val == select_fxtime.end:
+        select_fxtime.value = 0
+    else:
+        select_fxtime.value = time_val + 1
 
 
 def update_data(attr, old, new):
@@ -618,9 +639,11 @@ map_fig.on_event(events.Press, move_click_marker)
 select_day.on_change('value', update_models)
 select_model.on_change('value', update_file)
 select_fxtime.on_change('value', update_data)
+play_buttons.on_change('active', animate_times)
 
 # layout the document
-lay = column(row([select_day, select_model, select_fxtime]),
+lay = column(row([select_day, select_model,
+                  column([select_fxtime, play_buttons])]),
              gridplot([[map_fig],
                        [tseries_fig, hist_fig]],
                       toolbar_location='left',
