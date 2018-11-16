@@ -399,7 +399,8 @@ def _update_map(update_range=False):
     valid_date = local_data_source.data['valid_date'][0]
     mfmt = '%Y-%m-%d %H:%M MST'
     map_fig.title.text = (
-        f'UA HAS WRF {config.XLABEL} valid at '
+        f'UA HAS WRF {config.XLABEL} from {select_day.value} '
+        f'{select_model.value} valid at '
         f'{valid_date.tz_convert("MST").strftime(mfmt)}')
     masked_regrid = local_data_source.data['masked_regrid'][0]
     xn = local_data_source.data['xn'][0]
@@ -511,10 +512,10 @@ def update_file(attr, old, new):
 def _update_file(update_range=False):
     date = file_dict[select_day.value]
     load_file(select_model.value, date)
-    options = [t.strftime('%Y-%m-%d %H:%MZ') for t in times]
-    select_fxtime.end = len(options) - 1
+    select_fxtime.end = len(times) - 1
     if select_fxtime.value > select_fxtime.end:
         select_fxtime.value = select_fxtime.end
+
     try:
         doc.add_next_tick_callback(partial(_update_data, update_range))
     except ValueError:
@@ -568,6 +569,9 @@ def _move_click_marker(event):
 
 @gen.coroutine
 def _update_tseries():
+    tseries_fig.title.text = (
+        f'UA-HAS WRF {select_day.value} {select_model.value} at '
+        f'({hover_pt.data["lat"][0]:0.2f}, {hover_pt.data["lon"][0]:0.2f})')
     x_idx = hover_pt.data['x_idx'][0]
     y_idx = hover_pt.data['y_idx'][0]
 
