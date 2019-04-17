@@ -72,6 +72,7 @@ def read_subset(model, base_dir, day, variable):
     # chunks likely unique to UA WRF files
     lats = ds['XLAT'].values
     lons = ds['XLONG'].values
+
     if variable == 'WSPD':
         u = ds['U10']
         v = ds['V10']
@@ -92,8 +93,11 @@ def read_subset(model, base_dir, day, variable):
     elif variable == 'MDBZ':
         dbz = ds['REFL_10CM']
         data = np.amax(dbz, axis=-3)
+    elif variable == 'AOD550':
+        data = ds['AOD5502D']
     else:
         data = ds[variable]
+
     if variable in CONV_DICT:
         data = CONV_DICT[variable](data)
     times = convert_time_str(ds['Times'].values)

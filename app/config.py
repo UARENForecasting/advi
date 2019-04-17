@@ -31,7 +31,8 @@ MENU_VARS = (('2m Temperature', 'temp'),
              ('Accumulated Precip', 'rainac'),
              ('GHI', 'ghi'),
              ('DNI', 'dni'),
-             ('Composite Radar', 'radar'))
+             ('Composite Radar', 'radar'),
+             ('AOD 550', 'aod550'))
 
 LEVELS = []
 if _var == 'radar':
@@ -94,4 +95,11 @@ elif _var == 'dni':
     VAR = 'SWDDNI'
     CMAP = 'viridis'
     XLABEL = 'DNI (W/m^2)'
+    NBINS = 25
+elif _var == 'aod550':
+    MIN_VAL = 0
+    MAX_VAL = .3
+    VAR = 'AOD550'
+    CMAP = 'plasma'
+    XLABEL = 'AOD 550 nm'
     NBINS = 25
