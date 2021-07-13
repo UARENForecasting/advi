@@ -18,7 +18,8 @@ ENV H5DIR=/usr/local \
     H5VER=1.10.4 \
     HDF5_MD5SUM=cdf02e61f0d9920a7e7183aa0fb35429
 
-# Install HDF5
+# Install HDF5 and add library to the linder directory so they can be
+# found by python libraries.
 RUN set -ex \
     && wget -q https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-$(echo $H5VER | cut -d. -f1-2)/hdf5-$H5VER/src/hdf5-$H5VER.tar.gz \
     && echo "$HDF5_MD5SUM hdf5-$H5VER.tar.gz" | md5sum -c - \
@@ -38,6 +39,8 @@ COPY requirements.txt src/.
 RUN pip install --no-cache-dir -r src/requirements.txt
 
 COPY . src/.
+
+WORKDIR /opt/app-root/src
 
 RUN chown -R 1001:0 /opt/app-root
 
