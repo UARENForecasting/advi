@@ -3,6 +3,7 @@ FROM python:3.7-buster
 WORKDIR /opt/app-root/
 ENV PATH=/opt/app-root/bin:$PATH
 
+# Create python virtual environment for installing required packages
 RUN apt-get update && \
     apt-get install -y git nodejs npm && \
     apt-get clean && \
@@ -18,7 +19,7 @@ ENV H5DIR=/usr/local \
     H5VER=1.10.4 \
     HDF5_MD5SUM=cdf02e61f0d9920a7e7183aa0fb35429
 
-# Install HDF5 and add library to the linder directory so they can be
+# Install HDF5 and add library to the linker directory so they can be
 # found by python libraries.
 RUN set -ex \
     && wget -q https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-$(echo $H5VER | cut -d. -f1-2)/hdf5-$H5VER/src/hdf5-$H5VER.tar.gz \
