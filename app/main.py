@@ -7,6 +7,7 @@ import importlib
 import logging
 from pathlib import Path
 import os
+import re
 import sys
 import warnings
 
@@ -176,7 +177,11 @@ def find_fx_times():
 
 
 def strfmodel(modelstr):
-    return f'{modelstr[3:6]} {modelstr[7:]}'
+    sch = re.search(r'(?<=WRF)(\w+)_(\d+Z)', modelstr)
+    if sch is None:
+        return ''
+    else:
+        return ' '.join(sch.groups())
 
 
 def strpmodel(model):
