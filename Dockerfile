@@ -28,7 +28,6 @@ RUN set -ex \
     && cd hdf5-$H5VER \
     && ./configure --with-zlib --prefix=${H5DIR} --enable-shared \
     && make -j$(nproc) \
-    && make check -j$(nproc) \
     && make install \
     && cd .. \
     && rm -rf ./hdf5-$H5VER.tar.gz ./hdf5-$H5VER \
