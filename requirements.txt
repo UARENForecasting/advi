@@ -2,7 +2,7 @@ bokeh==1.0.1
 dask==0.20.2
 matplotlib==3.0.2
 netCDF4==1.4.2
-numpy==1.15.4
+numpy==1.22.0
 pandas==0.23.4
 scipy==1.1.0
 tables==3.4.4
