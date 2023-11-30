@@ -260,7 +260,7 @@ rgba_img = map_fig.image(image='image', x='x', y='y', dw='dw', dh='dh',
 # https://github.com/bokeh/bokeh/issues/4770
 STAMEN_TONER = WMTSTileSource(
     url=(os.getenv('TILE_SOURCE',
-                   'https://stamen-tiles.a.ssl.fastly.net/toner-lite') +
+                   'https://tiles.stadiamaps.com/tiles/stamen_toner_lite') +
          '/{Z}/{X}/{Y}.png'),
     attribution=(
         'Map tiles by <a href="http://stamen.com">Stamen Design</a>, '
