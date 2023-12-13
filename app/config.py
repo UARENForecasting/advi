@@ -9,7 +9,7 @@ except IndexError:
     _var = 'temp'
 
 
-ALPHA = 0.7
+ALPHA = .69
 RED = '#AB0520'
 BLUE = '#0C234B'
 TITLE = 'UA HAS ADVI'
