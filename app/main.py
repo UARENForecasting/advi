@@ -28,8 +28,6 @@ import pandas as pd
 import tables
 from tornado import gen
 
-
-from models.disabled_select import DisabledSelect
 import config
 # reload since sys.argv changes values
 config = importlib.reload(config)

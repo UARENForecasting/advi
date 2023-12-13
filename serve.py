@@ -67,9 +67,8 @@ if __name__ == '__main__':
     loglevel = os.getenv('ADVI_LOGLEVEL', 'INFO')
     logging.basicConfig(level=loglevel,
                         format='%(asctime)s %(message)s')
-    custom_js = compile_custom_models()
     apps = {make_url(arg): Application(DirectoryHandler(filename='app',
-                                                        argv=[arg, custom_js]))
+                                                        argv=[arg]))
             for _, arg in MENU_VARS}
 
     extra_patterns = [(make_url('?'), IndexHandler),
