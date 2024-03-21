@@ -20,8 +20,6 @@ PREFIX = os.getenv('ADVI_PREFIX', '')
 POSSIBLE_MODELS = ('WRFGFS_00Z', 'WRFGFS_06Z', 'WRFGFS_12Z',
                    'WRFNAM_00Z', 'WRFNAM_06Z', 'WRFNAM_12Z', 'WRFNAM_18Z',
                    'WRFRR_09Z', 'WRFRR_12Z', 'WRFRR_18Z')
-CUSTOM_BOKEH_MODELS = (('app.models.binned_color_mapper', 'BinnedColorMapper'),
-                       ('app.models.disabled_select', 'DisabledSelect'))
 ANIMATE_TIME = 500
 
 MENU_VARS = (('2m Temperature', 'temp'),
