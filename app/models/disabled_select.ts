@@ -1,106 +1,118 @@
-import {empty, label, select, option, optgroup} from "core/dom"
+// This is just a modified version of Bokeh's SelectView found in
+// /src/lib/models/widgets/selectbox.ts of the src repository as of
+// version 3.3.2
+import {select, option, optgroup, empty, append} from "core/dom"
 import {isString, isArray} from "core/util/types"
-import {logger} from "core/logging"
-import * as p from "core/properties"
+import {entries} from "core/util/object"
+import type * as p from "core/properties"
 
 import {InputWidget, InputWidgetView} from "models/widgets/input_widget"
+import * as inputs from "styles/widgets/inputs.css"
 
 export class DisabledSelectView extends InputWidgetView {
-    model: DisabledSelect
+  declare model: DisabledSelect
 
-    protected selectEl: HTMLSelectElement
+  declare input_el: HTMLSelectElement
 
-    initialize(options: any): void {
-        super.initialize(options)
-        this.render()
+  override connect_signals(): void {
+    super.connect_signals()
+    const {value, options} = this.model.properties
+    this.on_change(value, () => {
+      this._update_value()
+    })
+    this.on_change(options, () => {
+      empty(this.input_el)
+      append(this.input_el, ...this.options_el())
+      this._update_value()
+    })
+  }
+
+  private _known_values = new Set<string>()
+
+  protected options_el(): HTMLOptionElement[] | HTMLOptGroupElement[] {
+    const {_known_values} = this
+    _known_values.clear()
+
+    function build_options(values: (string | [string, boolean])[]): HTMLOptionElement[] {
+      return values.map((el) => {
+        let value
+	let disabled
+        if (isString(el)) {
+          value = el
+          disabled = false
+	}  else
+          [value, disabled] = el
+
+        _known_values.add(value)
+        return option({value, disabled}, value)
+      })
     }
 
-    connect_signals(): void {
-        super.connect_signals()
-        this.connect(this.model.change, () => this.render())
-    }
+    const {options} = this.model
+    if (isArray(options))
+      return build_options(options)
+    else
+      return entries(options).map(([label, values]) => optgroup({label}, build_options(values)))
+  }
 
-    build_options(values: (string | [string, bool])[]): HTMLElement[] {
-        return values.map((el) => {
-            let value, disabled
-            if (isString(el)) {
-                value = el
-                disabled = false
-            } else {
-                [value, disabled] = el
-            }
+  override render(): void {
+    super.render()
 
-            const selected = this.model.value == value
-            return option({selected: selected, value: value,
-                           disabled: disabled}, value)
-        })
-    }
+    this.input_el = select({
+      class: inputs.input,
+      name: this.model.name,
+      disabled: this.model.disabled,
+    }, this.options_el())
 
-    render(): void {
-        super.render()
-        empty(this.el)
+    this._update_value()
 
-        const labelEl = label({for: this.model.id}, this.model.title)
-        this.el.appendChild(labelEl)
+    this.input_el.addEventListener("change", () => this.change_input())
+    this.group_el.appendChild(this.input_el)
+  }
 
-        let contents: HTMLElement[]
-        if (isArray(this.model.options))
-            contents = this.build_options(this.model.options)
-        else {
-            contents = []
-            const options = this.model.options
-            for (const key in options) {
-                const value = options[key]
-                contents.push(optgroup({label: key}, this.build_options(value)))
-            }
-        }
+  override change_input(): void {
+    const value = this.input_el.value
+    this.model.value = value
+    super.change_input()
+  }
 
-        this.selectEl = select({
-            class: "bk-widget-form-input",
-            id: this.model.id,
-            name: this.model.name,
-            disabled: this.model.disabled}, contents)
-
-        this.selectEl.addEventListener("change", () => this.change_input())
-        this.el.appendChild(this.selectEl)
-    }
-
-    change_input(): void {
-        const value = this.selectEl.value
-        logger.debug(`selectbox: value = ${value}`)
-        this.model.value = value
-        super.change_input()
-    }
+  protected _update_value(): void {
+    const {value} = this.model
+    if (this._known_values.has(value))
+      this.input_el.value = value
+    else
+      this.input_el.removeAttribute("value")
+  }
 }
 
 export namespace DisabledSelect {
-    export interface Attrs extends InputWidget.Attrs {
-        value: string
-        options: (string | [string, string])[] | {[key: string]: (string | [string, string])[]}
-    }
+  export type Attrs = p.AttrsOf<Props>
 
-    export interface Props extends InputWidget.Props {}
+  export type Props = InputWidget.Props & {
+    value: p.Property<string>
+    options: p.Property<(string | [string, boolean])[] | {[key: string]: (string | [string, boolean])[]}>
+  }
 }
 
 export interface DisabledSelect extends DisabledSelect.Attrs {}
 
 export class DisabledSelect extends InputWidget {
+  declare properties: DisabledSelect.Props
+  declare __view_type__: DisabledSelectView
 
-    properties: DisabledSelect.Props
+  constructor(attrs?: Partial<DisabledSelect.Attrs>) {
+    super(attrs)
+  }
 
-    constructor(attrs?: Partial<DisabledSelect.Attrs>) {
-        super(attrs)
-    }
+  static {
+    this.prototype.default_view = DisabledSelectView
 
-    static initClass(): void {
-        this.prototype.type = "DisabledSelect"
-        this.prototype.default_view = DisabledSelectView
-
-        this.define({
-            value:   [ p.String, '' ],
-            options: [ p.Any,    [] ], // TODO (bev) is this used?
-        })
-    }
+    this.define<DisabledSelect.Props>(({String, Boolean, Array, Tuple, Dict, Or}) => {
+      const Options = Array(Or(String, Tuple(String, Boolean)))
+      return {
+        value:   [ String, "" ],
+        options: [ Or(Options, Dict(Options)), [] ],
+      }
+    })
+  }
 }
-
-DisabledSelect.initClass()

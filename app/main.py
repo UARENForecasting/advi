@@ -16,9 +16,8 @@ from bokeh import events
 from bokeh.colors import RGB
 from bokeh.models import (
     Range1d, LinearColorMapper, ColorBar, FixedTicker,
-    ColumnDataSource, WMTSTileSource, Slider)
-from bokeh.layouts import widgetbox
-from bokeh.models.widgets import Select, Div, RadioButtonGroup
+    ColumnDataSource, WMTSTileSource, Slider, Select, LinearColorMapper)
+from bokeh.models.widgets import Div, RadioButtonGroup
 from bokeh.server.callbacks import PeriodicCallback
 from bokeh.plotting import figure, curdoc
 from matplotlib.colors import BoundaryNorm, ListedColormap
@@ -29,9 +28,8 @@ import pandas as pd
 import tables
 from tornado import gen
 
-
 from models.disabled_select import DisabledSelect
-from models.binned_color_mapper import BinnedColorMapper
+
 import config
 # reload since sys.argv changes values
 config = importlib.reload(config)
@@ -95,9 +93,18 @@ precip_accum_cmap = ListedColormap(
         '#e1b4fa',
         '#950fdf'
     ))
-register_cmap(cmap=nws_radar_cmap)
-register_cmap(cmap=precip_1h_cmap)
-register_cmap(cmap=precip_accum_cmap)
+try:
+    register_cmap(cmap=nws_radar_cmap)
+except ValueError:
+    pass
+try:
+    register_cmap(cmap=precip_1h_cmap)
+except ValueError:
+    pass
+try:
+    register_cmap(cmap=precip_accum_cmap)
+except ValueError:
+    pass
 
 
 class H5File(object):
@@ -200,6 +207,12 @@ def get_models(date):
     mld = [(strfmodel(k), v) for k, v in disabled.items()]
     return mld
 
+def update_file(attr, old, new):
+    try:
+        doc.add_timeout_callback(_update_file, 100)
+    except ValueError:
+        pass
+
 
 # setup the coloring
 if config.LEVELS:
@@ -231,7 +244,7 @@ color_pal = [RGB(val[0], val[1], val[2], config.ALPHA) for val in
 
 bin_pal = color_pal.copy()
 bin_pal.append(RGB(255, 255, 255, config.ALPHA))
-bin_mapper = BinnedColorMapper(bin_pal)
+bin_mapper = LinearColorMapper(bin_pal)
 color_mapper = LinearColorMapper(color_pal, **cmkwargs)
 ticker = FixedTicker(ticks=ticks)
 cb = ColorBar(color_mapper=color_mapper, location=(0, 0),
@@ -242,7 +255,7 @@ width = 768
 height = int(width / 1.6)
 
 tools = 'pan, box_zoom, reset, save'
-map_fig = figure(plot_width=width, plot_height=height,
+map_fig = figure(width=width, height=height,
                  y_axis_type=None, x_axis_type=None,
                  toolbar_location='left', tools=tools + ', wheel_zoom',
                  active_scroll='wheel_zoom',
@@ -274,7 +287,7 @@ map_fig.add_layout(cb, 'right')
 
 hheight = int(width / 2)
 # Make the histogram figure
-hist_fig = figure(plot_width=hheight, plot_height=hheight,
+hist_fig = figure(width=hheight, height=hheight,
                   toolbar_location='right',
                   x_axis_label=config.XLABEL,
                   y_axis_label='Counts', tools=tools + ', ywheel_zoom',
@@ -313,7 +326,7 @@ select_fxtime = Slider(title='Forecast Time-Step', start=0, end=1, value=0,
                        name='timeslider', sizing_mode='scale_width')
 play_buttons = RadioButtonGroup(labels=['\u25B6', '\u25FC', '\u27F3'],
                                 active=1, name='play_buttons',
-                                sizing_mode='fixed')
+                                sizing_mode='scale_width')
 info_data = ColumnDataSource(data={'current_val': [0], 'mean': [0],
                                    'median': [0],
                                    'bin_width': [bin_width]})
@@ -512,15 +525,11 @@ def _update_models(update_range=False):
             thelabel = m
         if not disabled and not thelabel:
             thelabel = m
+
     select_model.value = thelabel
     doc.add_next_tick_callback(partial(_update_file, update_range))
 
 
-def update_file(attr, old, new):
-    try:
-        doc.add_timeout_callback(_update_file, 100)
-    except ValueError:
-        pass
 
 
 @gen.coroutine
@@ -530,7 +539,6 @@ def _update_file(update_range=False):
     select_fxtime.end = len(times) - 1
     if select_fxtime.value > select_fxtime.end:
         select_fxtime.value = select_fxtime.end
-
     try:
         doc.add_next_tick_callback(partial(_update_data, update_range))
     except ValueError:
@@ -672,7 +680,6 @@ for thing in (select_day, select_model, select_fxtime, play_buttons,
               map_fig, hist_fig, tseries_fig, info_div):
     doc.add_root(thing)
 doc.add_next_tick_callback(partial(_update_models, True))
-doc.add_timeout_callback(_update_data, 1000)
 doc.title = config.TITLE
 doc.template_variables.update({
     'menu_vars': config.MENU_VARS,
