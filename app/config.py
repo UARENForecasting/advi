@@ -17,9 +17,13 @@ DATA_DIRECTORY = os.getenv('ADVI_DATADIR', '~/.wrf')
 WS_ORIGIN = os.getenv('WS_ORIGIN', 'localhost:5006')
 GA_TRACKING_ID = os.getenv('ADVI_TRACKING_ID', '')
 PREFIX = os.getenv('ADVI_PREFIX', '')
-POSSIBLE_MODELS = ('WRFGFS_00Z', 'WRFGFS_06Z', 'WRFGFS_12Z',
-                   'WRFNAM_00Z', 'WRFNAM_06Z', 'WRFNAM_12Z', 'WRFNAM_18Z',
-                   'WRFRR_09Z', 'WRFRR_12Z', 'WRFRR_18Z')
+POSSIBLE_MODELS = (
+    'WRFGFS_00Z', 'WRFGFS_06Z', 'WRFGFS_12Z','WRFGFS_18Z',
+    'WRFRR_00Z', 'WRFRR_06Z', 'WRFRR_12Z',
+    'WRFHRRR_00Z', 'WRFHRRR_03Z', 'WRFHRRR_06Z', 'WRFHRRR_09Z',
+    'WRFHRRR_12Z', 'WRFHRRR_15Z', 'WRFHRRR_18Z',
+)
+CUSTOM_BOKEH_MODELS = (('app.models.disabled_select', 'DisabledSelect'),)
 ANIMATE_TIME = 500
 
 MENU_VARS = (('2m Temperature', 'temp'),
