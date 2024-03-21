@@ -2,17 +2,16 @@
 # /src/bokeh/models/widgets/input.py
 from bokeh.models.callbacks import Callback
 from bokeh.core.properties import (
-	List,
-	Either,
+    List,
+    Either,
     String,
     Tuple,
     Bool,
-	Dict,
+    Dict,
     Instance,
-	Null
+    Null
 )
 from bokeh.models.widgets.inputs import InputWidget
-from bokeh.util.compiler import TypeScript
 
 class DisabledSelect(InputWidget):
     ''' Single-select widget with capability to have disabled options.
