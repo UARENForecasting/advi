@@ -541,7 +541,7 @@ def _update_file(update_range=False):
         select_fxtime.value = select_fxtime.end
     try:
         doc.add_next_tick_callback(partial(_update_data, update_range))
-    except ValueError as e:
+    except ValueError:
         pass
 
     try:
