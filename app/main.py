@@ -17,7 +17,7 @@ from bokeh.colors import RGB
 from bokeh.models import (
     Range1d, LinearColorMapper, ColorBar, FixedTicker,
     ColumnDataSource, WMTSTileSource, Slider, Select, LinearColorMapper)
-from bokeh.models.widgets import Select, Div, RadioButtonGroup
+from bokeh.models.widgets import Div, RadioButtonGroup
 from bokeh.server.callbacks import PeriodicCallback
 from bokeh.plotting import figure, curdoc
 from matplotlib.colors import BoundaryNorm, ListedColormap
@@ -27,6 +27,8 @@ import numpy as np
 import pandas as pd
 import tables
 from tornado import gen
+
+from models.disabled_select import DisabledSelect
 
 import config
 # reload since sys.argv changes values
@@ -202,7 +204,7 @@ def get_models(date):
         if pp.joinpath(f'{config.VAR}.h5').exists():
             m = pp.parts[-1]
             disabled[m] = False
-    mld = [(strfmodel(k)) for k, v in disabled.items() if not v]
+    mld = [(strfmodel(k), v) for k, v in disabled.items()]
     return mld
 
 def update_file(attr, old, new):
@@ -316,7 +318,7 @@ file_dict = find_fx_times()
 dates = list(file_dict.keys())[::-1]
 select_day = Select(title='Initialization Day', value=dates[0], options=dates,
                     sizing_mode='scale_width', name='select_day')
-select_model = Select(title='Initialization', value='',
+select_model = DisabledSelect(title='Initialization', value='',
                               options=[], sizing_mode='scale_width',
                               name='select_model')
 times = []
@@ -518,11 +520,12 @@ def _update_models(update_range=False):
     select_model.options = models
 
     thelabel = ''
-    for m in models:
-        if m == select_model.value:
+    for m, disabled in models:
+        if m == select_model.value and not disabled:
             thelabel = m
-        if not thelabel:
+        if not disabled and not thelabel:
             thelabel = m
+
     select_model.value = thelabel
     doc.add_next_tick_callback(partial(_update_file, update_range))
 
@@ -536,10 +539,9 @@ def _update_file(update_range=False):
     select_fxtime.end = len(times) - 1
     if select_fxtime.value > select_fxtime.end:
         select_fxtime.value = select_fxtime.end
-
     try:
         doc.add_next_tick_callback(partial(_update_data, update_range))
-    except ValueError:
+    except ValueError as e:
         pass
 
     try:
@@ -678,7 +680,6 @@ for thing in (select_day, select_model, select_fxtime, play_buttons,
               map_fig, hist_fig, tseries_fig, info_div):
     doc.add_root(thing)
 doc.add_next_tick_callback(partial(_update_models, True))
-doc.add_timeout_callback(_update_data, 1000)
 doc.title = config.TITLE
 doc.template_variables.update({
     'menu_vars': config.MENU_VARS,
