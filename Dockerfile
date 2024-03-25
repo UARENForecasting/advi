@@ -1,11 +1,11 @@
-FROM python:3.11-buster
+FROM python:3.11-slim-bookworm
 
 WORKDIR /opt/app-root/
 ENV PATH=/opt/app-root/bin:$PATH
 
 # Create python virtual environment for installing required packages
 RUN apt-get update && \
-    apt-get install -y git nodejs npm && \
+    apt-get install -y wget git nodejs npm && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* && \
     /usr/local/bin/python -m venv /opt/app-root/ && \
