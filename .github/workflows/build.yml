@@ -47,13 +47,14 @@ jobs:
       - name: Trigger deployment
         run: |
           REF=$(echo ${GITHUB_SHA} | cut -c -8)
-          DATA='{"ref":"master","inputs":{"name":"'${NAME}'","digest":"'${DIGEST}'","ref":"'${REF}'"}}'
+          MSG=https://github.com/UARENForecasting/${{ github.event.repository.name }}/commit/${{ github.sha }}
+          DATA='{"ref":"master","inputs":{"name":"'${NAME}'","digest":"'${DIGEST}'","ref":"'${REF}'","msg":"'"${MSG}"'"}}'
           echo ${DATA}
           curl \
           -X POST \
           -H "Accept: application/vnd.github.v3+json" \
           -u ${USERNAME}:${PASSWORD} \
-          https://api.github.com/repos/uarenforecasting/fx-deploy/actions/workflows/update-image.yml/dispatches \
+          https://api.github.com/repos/uarenforecasting/fx-deploy/actions/workflows/update-image-msg.yml/dispatches \
           -d ${DATA}
         env:
           NAME: advi
